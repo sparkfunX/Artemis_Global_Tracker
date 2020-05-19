@@ -174,7 +174,7 @@ void setup()
 // Test 1 - check the bus voltage and VCC
 // -----------------------------------------------------------------------
 
-  float busV = ((float)analogRead(busVoltagePin)) * 3.0 * 2.0 / 16384.0;
+  float busV = ((float)analogRead(busVoltagePin)) * 3.0 * 1.09 * 2.0 / 16384.0; // Correction factor 1.09
   Serial.print(F("Test 1 Step 1: The bus voltage is: "));
   Serial.print(busV, 2);
   Serial.println(F("V"));

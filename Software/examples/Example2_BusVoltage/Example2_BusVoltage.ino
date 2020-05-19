@@ -97,7 +97,7 @@ void loop()
   Serial.print(F("busV/3: "));
   Serial.print(busV3);
 
-  float busV = (float)busV3 * 3.0 * 2.0 / 16384.0; //Convert 1/3 busV to busV
+  float busV = (float)busV3 * 3.0 * 1.09 * 2.0 / 16384.0; //Convert 1/3 busV to busV (correction factor 1.09)
   Serial.print(F(" busV: "));
   Serial.print(busV, 2);
   Serial.print(F("V"));

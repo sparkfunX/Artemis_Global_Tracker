@@ -16,11 +16,12 @@ bool battVlow ()
 // Disable the bus voltage monitor to save power
 // Converts the analogread into V * 10^-2, compensating for
 // the voltage divider (/3) and the Apollo voltage reference (2.0V)
+// Include a correction factor of 1.09
 void get_vbat()
 {
   digitalWrite(busVoltageMonEN, HIGH); // Enable the bus voltage monitor
   analogReadResolution(14); //Set resolution to 14 bit
   delay(10); // Let the voltage settle
-  myTrackerSettings.BATTV.the_data = ((uint16_t)analogRead(busVoltagePin)) * 100 * 3 * 2 / 16384; // Convert into V * 10^-2
+  myTrackerSettings.BATTV.the_data = ((uint16_t)analogRead(busVoltagePin)) * 109 * 3 * 2 / 16384; // Convert into V * 10^-2
   digitalWrite(busVoltageMonEN, LOW); // Disable the bus voltage monitor
 }

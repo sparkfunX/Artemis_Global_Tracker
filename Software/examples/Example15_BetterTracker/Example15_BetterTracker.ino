@@ -248,7 +248,7 @@ void get_vbat()
   digitalWrite(busVoltageMonEN, HIGH); // Enable the bus voltage monitor
   analogReadResolution(14); //Set resolution to 14 bit
   delay(10); // Let the voltage settle
-  vbat = ((float)analogRead(busVoltagePin)) * 3.0 * 2.0 / 16384.0;
+  vbat = ((float)analogRead(busVoltagePin)) * 3.0 * 1.09 * 2.0 / 16384.0; // Correction factor 1.09
   digitalWrite(busVoltageMonEN, LOW); // Disable the bus voltage monitor
 }
 
