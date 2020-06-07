@@ -3,7 +3,7 @@
   Example: Simple Tracker
   
   Written by Paul Clark (PaulZC)
-  9th February 2020
+  7th June 2020
 
   This example configures the Artemis Iridium Tracker as a simple
   GNSS + Iridium tracker. A 3D fix is taken from the ZOE-M8Q.
@@ -19,13 +19,16 @@
   
   You will need to install this version of the Iridium SBD library
   before this example will run successfully:
-  https://github.com/PaulZC/IridiumSBD
+  https://github.com/sparkfun/SparkFun_IridiumSBD_I2C_Arduino_Library
+  (Available through the Arduino Library Manager: search for IridiumSBDi2c)
   
   You will also need to install the Qwiic_PHT_MS8607_Library:
-  https://github.com/PaulZC/Qwiic_PHT_MS8607_Library
+  https://github.com/sparkfun/SparkFun_PHT_MS8607_Arduino_Library
+  (Available through the Arduino Library Manager: search for MS8607)
   
-  Basic information on how to install an Arduino library is available here:
-  https://learn.sparkfun.com/tutorials/installing-an-arduino-library
+  You will also need to install the SparkFun Ublox Library:
+  https://github.com/sparkfun/SparkFun_Ublox_Arduino_Library
+  (Available through the Arduino Library Manager: search for Ublox)
   
   This example is based extensively on the Artemis Low Power With Wake example
   By: Nathan Seidle
@@ -64,7 +67,7 @@
 // (note, in this variant the pins map directly to pad, so pin === pad when talking about the pure Artemis module)
 Uart iridiumSerial(1, 25, 24);
 
-#include <IridiumSBD.h> // https://github.com/PaulZC/IridiumSBD
+#include <IridiumSBD.h> //http://librarymanager/All#IridiumSBDI2C
 #define DIAGNOSTICS false // Change this to true to see IridiumSBD diagnostics
 // Declare the IridiumSBD object (including the sleep (ON/OFF) and Ring Indicator pins)
 IridiumSBD modem(iridiumSerial, iridiumSleep, iridiumRI);
@@ -74,7 +77,7 @@ IridiumSBD modem(iridiumSerial, iridiumSleep, iridiumRI);
 #include <SparkFun_Ublox_Arduino_Library.h> //http://librarymanager/All#SparkFun_Ublox_GPS
 SFE_UBLOX_GPS myGPS;
 
-#include <MS8607_Library.h> // https://github.com/PaulZC/Qwiic_PHT_MS8607_Library
+#include <SparkFun_PHT_MS8607_Arduino_Library.h> //http://librarymanager/All#MS8607
 MS8607 barometricSensor; //Create an instance of the MS8607 object
 
 // Include dtostrf
@@ -202,12 +205,13 @@ extern "C" void am_rtc_isr(void)
 // Disable the bus voltage monitor to save power
 // Converts the analogread into Volts, compensating for
 // the voltage divider (/3) and the Apollo voltage reference (2.0V)
+// Include a correction factor of 1.09 to correct for the divider impedance
 void get_vbat()
 {
   digitalWrite(busVoltageMonEN, HIGH); // Enable the bus voltage monitor
   //analogReadResolution(14); //Set resolution to 14 bit
   delay(1); // Let the voltage settle
-  vbat = ((float)analogRead(busVoltagePin)) * 3.0 * 1.09 * 2.0 / 16384.0; // Correction factor 1.09
+  vbat = ((float)analogRead(busVoltagePin)) * 3.0 * 1.09 * 2.0 / 16384.0;
   digitalWrite(busVoltageMonEN, LOW); // Disable the bus voltage monitor
 }
 

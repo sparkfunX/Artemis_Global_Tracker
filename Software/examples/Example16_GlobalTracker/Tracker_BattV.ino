@@ -16,7 +16,7 @@ bool battVlow ()
 // Disable the bus voltage monitor to save power
 // Converts the analogread into V * 10^-2, compensating for
 // the voltage divider (/3) and the Apollo voltage reference (2.0V)
-// Include a correction factor of 1.09
+// Include a correction factor of 1.09 to correct for the divider impedance
 void get_vbat()
 {
   digitalWrite(busVoltageMonEN, HIGH); // Enable the bus voltage monitor

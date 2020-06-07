@@ -95,6 +95,16 @@ Power for the 9603N is provided by the same LTC3225 supercapacitor charger and A
 
 ![LTC3225](../../img/LTC3225.JPG)
 
+The LTC3225 charge current is adjustable up to a maximum of 150mA. When set to the full 150mA, the LTC3225 can match the 145mA average current
+drawn by the 9603N during transmit. This means that 1 Farad supercapacitors are adequate as they only need to hold enough charge to meet the
+9603N's 1.3A peak current draw during the very brief (8.3ms) transmit bursts.
+
+If you want to power the Global Tracker from a low current source, e.g. solar panels, the charge current can be reduced to 60mA by
+changing the **Charge Current** jumper link. The 60mA charge current is enough to offset the 9603N's 39mA average current draw during receive,
+but bigger supercapacitors are needed to deliver the average current draw during a complete receive/transmit cycle.
+So, if you do change the charge current to 60mA, you will also need to solder additional 10 Farad supercapacitors on to
+the rear of the PCB using the solder pads provided.
+
 ## Antenna Switch
 
 The ZOE and Iridium 9603N share the antenna via a [Skyworks AS179-92LF GaAs RF Switch](https://www.skyworksinc.com/products/switches/as179-92lf).

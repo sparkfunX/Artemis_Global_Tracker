@@ -3,16 +3,16 @@
  Example: External Pressure, Humidity, Temperature
 
  Written by Paul Clark (PaulZC)
- 30th January 2020
+ 7th June 2020
 
  ** Set the Board to "SparkFun Artemis Module" **
 
  This example reads the pressure, humidity and temperature from an external MS8607 sensor
  connected to the Qwiic port.
  
- You will need to install the Qwiic_PHT_MS8607_Library before this example
- will run successfully:
- https://github.com/PaulZC/Qwiic_PHT_MS8607_Library
+ You will also need to install the Qwiic_PHT_MS8607_Library:
+ https://github.com/sparkfun/SparkFun_PHT_MS8607_Arduino_Library
+ (Available through the Arduino Library Manager: search for MS8607)
 
  Basic information on how to install an Arduino library is available here:
  https://learn.sparkfun.com/tutorials/installing-an-arduino-library
@@ -41,7 +41,7 @@
 #include <Wire.h>
 TwoWire myWire(4); //Will use Artemis pads 39/40
 
-#include <MS8607_Library.h>
+#include <SparkFun_PHT_MS8607_Arduino_Library.h> //http://librarymanager/All#MS8607
 
 //Create an instance of the MS8607 object
 MS8607 barometricSensor;

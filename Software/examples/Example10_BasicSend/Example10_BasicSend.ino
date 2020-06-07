@@ -3,7 +3,7 @@
  Example: Basic Send
 
  Written by Paul Clark (PaulZC)
- 30th January 2020
+ 7th June 2020
 
  ** Set the Board to "SparkFun Artemis Module" **
 
@@ -15,8 +15,9 @@
  
  You will need to install this version of the Iridium SBD library
  before this example will run successfully:
- https://github.com/PaulZC/IridiumSBD
-
+ https://github.com/sparkfun/SparkFun_IridiumSBD_I2C_Arduino_Library
+ (Available through the Arduino Library Manager: search for IridiumSBDi2c)
+ 
  Power for the 9603N is provided by the LTC3225 super capacitor charger.
  D27 needs to be pulled high to enable the charger.
  The LTC3225 PGOOD signal is connected to D28.
@@ -59,7 +60,7 @@
 // (note, in this variant the pins map directly to pad, so pin === pad when talking about the pure Artemis module)
 Uart iridiumSerial(1, 25, 24);
 
-#include <IridiumSBD.h>
+#include <IridiumSBD.h> //http://librarymanager/All#IridiumSBDI2C
 #define DIAGNOSTICS false // Change this to true to see IridiumSBD diagnostics
 // Declare the IridiumSBD object (including the sleep (ON/OFF) and Ring Indicator pins)
 IridiumSBD modem(iridiumSerial, iridiumSleep, iridiumRI);

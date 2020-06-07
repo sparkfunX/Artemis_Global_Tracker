@@ -2,7 +2,7 @@
   Artemis Global Tracker
   
   Written by Paul Clark (PaulZC)
-  28th March 2020
+  7th June 2020
 
   *** (MINOR) WORK IN PROGRESS! ***
   * Still to do:
@@ -20,16 +20,11 @@
 
   You can configure which message fields are included in the message so you only send the data you need.
   You can find a Python3 PyQt5 configuration tool at:
-  https://github.com/PaulZC/Artemis_Global_Tracker/tree/master/Tools
+  https://github.com/sparkfun/Artemis_Global_Tracker/tree/master/Tools
 
-  You can trigger user-defined functions e.g. to operate an external relay
-  https://www.sparkfun.com/products/15093
-  https://www.sparkfun.com/products/15102
-
-  You can also include readings from additional sensors e.g.
-  UV: https://www.sparkfun.com/products/15089
-  Distance: https://www.sparkfun.com/products/14722
-  Human Presence: https://www.sparkfun.com/products/14349
+  You can trigger user-defined functions and include readings from additional sensors:
+  https://github.com/sparkfun/Artemis_Global_Tracker/tree/master/Documentation/GlobalTracker_FAQs#How-do-I-define-and-trigger-a-user-function
+  https://github.com/sparkfun/Artemis_Global_Tracker/tree/master/Documentation/GlobalTracker_FAQs#how-do-i-send-a-user-value
 
   You can have the Iridium 9603N monitor the ring channel continuously for new Mobile Terminated messages
   but this will increase the current draw considerably. This is not recommended for battery-powered
@@ -43,11 +38,11 @@
   
   You will need to install this version of the Iridium SBD library
   before this example will run successfully:
-  https://github.com/PaulZC/IridiumSBD
+  https://github.com/sparkfun/SparkFun_IridiumSBD_I2C_Arduino_Library
   (Available through the Arduino Library Manager: search for IridiumSBDi2c)
   
   You will also need to install the Qwiic_PHT_MS8607_Library:
-  https://github.com/PaulZC/Qwiic_PHT_MS8607_Library
+  https://github.com/sparkfun/SparkFun_PHT_MS8607_Arduino_Library
   (Available through the Arduino Library Manager: search for MS8607)
   
   You will also need to install the SparkFun Ublox Library:
@@ -95,14 +90,14 @@ trackerSettings myTrackerSettings; // Create storage for the tracker settings in
 // (note, in this variant the pins map directly to pad, so pin === pad when talking about the pure Artemis module)
 Uart iridiumSerial(1, 25, 24);
 
-#include <IridiumSBD.h> // https://github.com/PaulZC/IridiumSBD
+#include <IridiumSBD.h> //http://librarymanager/All#IridiumSBDI2C
 #define DIAGNOSTICS false // Change this to true to see IridiumSBD diagnostics
 // Declare the IridiumSBD object (including the sleep (ON/OFF) and Ring Indicator pins)
 IridiumSBD modem(iridiumSerial, iridiumSleep, iridiumRI);
 
 #include <Wire.h> // Needed for I2C
 
-#include <MS8607_Library.h> // https://github.com/PaulZC/Qwiic_PHT_MS8607_Library
+#include <SparkFun_PHT_MS8607_Arduino_Library.h> //http://librarymanager/All#MS8607
 MS8607 barometricSensor; //Create an instance of the MS8607 object
 
 // Include dtostrf

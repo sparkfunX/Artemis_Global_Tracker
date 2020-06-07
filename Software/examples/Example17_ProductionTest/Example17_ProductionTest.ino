@@ -5,7 +5,7 @@
  ** Requires the Artemis Global Tracker Test Header **
 
  Written by Paul Clark (PaulZC)
- 20th March 2020
+ 7th June 2020
 
  ** Set the Board to "SparkFun Artemis Module" **
 
@@ -22,7 +22,7 @@
 
  You will need to install the Qwiic_PHT_MS8607_Library before this example
  will run successfully:
- https://github.com/PaulZC/Qwiic_PHT_MS8607_Library
+ https://github.com/sparkfun/SparkFun_PHT_MS8607_Arduino_Library
  (Search for MS8607 in the Library Manager)
 
  You will need to install the SparkFun u-blox library before this example
@@ -174,7 +174,7 @@ void setup()
 // Test 1 - check the bus voltage and VCC
 // -----------------------------------------------------------------------
 
-  float busV = ((float)analogRead(busVoltagePin)) * 3.0 * 1.09 * 2.0 / 16384.0; // Correction factor 1.09
+  float busV = ((float)analogRead(busVoltagePin)) * 3.0 * 1.09 * 2.0 / 16384.0;
   Serial.print(F("Test 1 Step 1: The bus voltage is: "));
   Serial.print(busV, 2);
   Serial.println(F("V"));

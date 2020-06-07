@@ -3,7 +3,7 @@
  Example: Bus Voltage
 
  Written by Paul Clark (PaulZC)
- 30th January 2020
+ 7th June 2020
 
  ** Set the Board to "SparkFun Artemis Module" **
 
@@ -22,7 +22,8 @@
  The voltage on pin AD13 is the bus voltage divided by 3
  The Apollo3 internal ADC VADCREF is set to 2.0 Volts
  This example sets the analogReadResolution to 14-bits (16384)
- So, to convert the analogRead into Volts, we multiply by: 3.0 * 2.0 / 16384.0
+ So, to convert the analogRead into Volts, we multiply by: 3.0 * 1.09 * 2.0 / 16384.0
+ (The 1.09 is a correction factor for the divider source impedance)
 */
 
 // Artemis Tracker pin definitions
