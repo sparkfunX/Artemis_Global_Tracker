@@ -17,6 +17,7 @@ An open source global satellite tracker utilising the [SparkFun Artemis module](
 - **/Hardware** - Eagle PCB, SCH and LBR design files
 - **/Software** - Arduino examples
 - **/Tools** - Tools to help: configure the full GlobalTracker example via USB or remotely via Iridium messaging; and track and map its position
+- **/binaries** - binary files for the examples which you can upload using the [Artemis Firmware Upload GUI](https://github.com/sparkfun/Artemis-Firmware-Upload-GUI) instead of the Arduino IDE
 - **LICENSE.md** contains the licence information
 
 ## Documentation

@@ -5,6 +5,9 @@ how to get a fix from the ZOE-M8Q GNSS; how to set up a geofence and how to wake
 how to send Iridium Short Burst Data (SBD) messages and monitor the ring channel for new messages. Example16 contains the code
 for the full GlobalTracker.
 
+If you don't want to use the Arduino IDE, you can upload the examples using the [Artemis Firmware Upload GUI](https://github.com/sparkfun/Artemis-Firmware-Upload-GUI) instead.
+You will find the binary files in the [binaries folder](../../binaries).
+
 **Example1 - Blink** powers up the tracker and blinks the white LED (connected to D19).
 
 **Example2 - Bus Voltage** demonstrates how to read: the battery (bus) voltage; the internal VCC voltage; the Artemis internal temperature; the VSS (ground) voltage.
