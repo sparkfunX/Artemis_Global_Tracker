@@ -70,7 +70,7 @@
 #include <Wire.h>
 TwoWire testWire(4); //Will use Artemis pads 39/40 to talk to the AGT Test Header
 
-#include <MS8607_Library.h>
+#include <SparkFun_PHT_MS8607_Arduino_Library.h> //http://librarymanager/All#MS8607
 
 //Create an instance of the MS8607 object
 //The on-board MS8607 is connected to I2C Port 1 (Wire1): SCL = D8; SDA = D9
@@ -354,7 +354,7 @@ void setup()
 
   // Let's create the custom packetCfg to let us change the UBX_CFG_PRT
   uint8_t customPayloadCfg[MAX_PAYLOAD_SIZE];
-  ubxPacket customPacketCfg = {0, 0, 0, 0, 0, customPayloadCfg, 0, 0, false};
+  ubxPacket customPacketCfg = {0, 0, 0, 0, 0, customPayloadCfg, 0, 0, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED};
 
   // The UART1 timing is a bit tricky, we need to sample txReady while UART1 is transmitting,
   // so we'll attempt this test up to three times if required.
@@ -398,9 +398,7 @@ void setup()
     Serial.println(F("Test 3 Step 3: Updating the ZOE geofence/txReady pin"));
   
     // Send the custom packetCfg.
-    // This will always timeout due to a 'feature' in the u-blox library
-    // but we don't care about that...
-    myGPS.sendCommand(customPacketCfg, 0);
+    myGPS.sendCommand(&customPacketCfg);
   
     // Now let's ask for the PVT message via I2C
     // We can be confident that NMEA will be being transmitted on UART1 at the same time (but slower)
@@ -447,9 +445,7 @@ void setup()
     Serial.println(F("Test 3 Step 4: Updating the ZOE geofence/txReady pin"));
   
     // Send the custom packetCfg.
-    // This will always timeout due to a 'feature' in the u-blox library
-    // but we don't care about that...
-    myGPS.sendCommand(customPacketCfg, 0);
+    myGPS.sendCommand(&customPacketCfg);
   
     // Now let's ask for the PVT message via I2C
     // We can be confident that NMEA will be being transmitted on UART1 at the same time
