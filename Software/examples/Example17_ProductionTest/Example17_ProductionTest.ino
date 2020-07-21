@@ -5,7 +5,7 @@
  ** Requires the Artemis Global Tracker Test Header **
 
  Written by Paul Clark (PaulZC)
- 7th June 2020
+ 21st July 2020
 
  ** Set the Board to "SparkFun Artemis Module" **
 
@@ -29,9 +29,17 @@
  will run successfully:
  https://github.com/sparkfun/SparkFun_Ublox_Arduino_Library
 
+ Version History:
+ V1.1: 21st July 2020
+   Added the RTC test (Test 6)
+ V1.0: 7th June 2020
+   First release
+
 */
 
-//#define noFail // Uncomment this line to allow the test to continue even though it has failed
+// Uncomment the "#define noFail" to allow the test to continue even though it has failed
+// (Beware: doing this could kill an Artemis I/O pin if it is shorted to ground!)
+//#define noFail
 
 // Artemis Tracker pin definitions
 #define spiCS1              4  // D4 can be used as an SPI chip select or as a general purpose IO pin
@@ -70,7 +78,7 @@
 #include <Wire.h>
 TwoWire testWire(4); //Will use Artemis pads 39/40 to talk to the AGT Test Header
 
-#include <SparkFun_PHT_MS8607_Arduino_Library.h> //http://librarymanager/All#MS8607
+#include <SparkFun_PHT_MS8607_Arduino_Library.h> //http://librarymanager/All#SparkFun_PHT_MS8607
 
 //Create an instance of the MS8607 object
 //The on-board MS8607 is connected to I2C Port 1 (Wire1): SCL = D8; SDA = D9
@@ -90,6 +98,73 @@ volatile bool geofenceFlag = false; // Flag to show if the geofence pin has chan
 void geofenceISR(void)
 {
   geofenceFlag = true; // Update the flag
+}
+
+// Define how often to wake up in SECONDS during Test 6
+unsigned long INTERVAL = 5;
+
+// Use this to keep track of the second alarms from the RTC
+volatile unsigned long seconds_count = 0;
+
+// This flag indicates an interval alarm has occurred
+volatile bool interval_alarm = false;
+
+// Loop Steps - these are used by the switch/case in Test 6
+#define loop_init     0
+#define send_time_1   1
+#define zzz           2
+#define wake          3
+#define send_time_2   4
+#define done          5
+int loop_step = loop_init; // Make sure loop_step is set to loop_init
+
+// Set up the RTC and generate interrupts every second
+void setupRTC()
+{
+  // Enable the XT for the RTC.
+  am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_XTAL_START, 0);
+  
+  // Select XT for RTC clock source
+  am_hal_rtc_osc_select(AM_HAL_RTC_OSC_XT);
+  
+  // Enable the RTC.
+  am_hal_rtc_osc_enable();
+  
+  // Set the alarm interval to 1 second
+  am_hal_rtc_alarm_interval_set(AM_HAL_RTC_ALM_RPT_SEC);
+  
+  // Clear the RTC alarm interrupt.
+  am_hal_rtc_int_clear(AM_HAL_RTC_INT_ALM);
+  
+  // Enable the RTC alarm interrupt.
+  am_hal_rtc_int_enable(AM_HAL_RTC_INT_ALM);
+  
+  // Enable RTC interrupts to the NVIC.
+  NVIC_EnableIRQ(RTC_IRQn);
+
+  // Enable interrupts to the core.
+  am_hal_interrupt_master_enable();
+}
+
+// RTC alarm Interrupt Service Routine
+// Clear the interrupt flag and increment seconds_count
+// If INTERVAL has been reached, set the interval_alarm flag and reset seconds_count
+// (Always keep ISRs as short as possible, don't do anything clever in them,
+//  and always use volatile variables if the main loop needs to access them too.)
+extern "C" void am_rtc_isr(void)
+{
+  // Clear the RTC alarm interrupt.
+  am_hal_rtc_int_clear(AM_HAL_RTC_INT_ALM);
+
+  // Increment seconds_count
+  seconds_count = seconds_count + 1;
+
+  // Check if interval_alarm should be set
+  if (seconds_count >= INTERVAL)
+  {
+    interval_alarm = true;
+    seconds_count = 0;
+  }
 }
 
 void gnssON(void) // Enable power for the GNSS
@@ -612,7 +687,7 @@ void setup()
   pinMode(iridiumRx, OUTPUT); // Configure the pin connected to the Iridium 9603N Rx
   digitalWrite(iridiumRx, LOW);
 
-  delay(100); // Let the pins settle
+  delay(1000); // Let the pins settle
 
   ioPins = readTestHeaderPins(); // Update ioPins
 
@@ -796,6 +871,260 @@ void setup()
   if (testFailed == false)
   {
     Serial.println(F("Test 5: Passed"));
+  }
+
+// -----------------------------------------------------------------------
+// Test6 - test the RTC crystal by putting the Artemis into deep sleep
+// -----------------------------------------------------------------------
+
+  // Initialise the globals
+  loop_step = loop_init; // Make sure loop_step is set to loop_init
+  seconds_count = 0; // Make sure seconds_count is reset
+  interval_alarm = false; // Make sure the interval alarm is clear
+  int num_tests = 1; // Count the numbers of tests
+
+  // Set up the RTC for 1 second interrupts
+  setupRTC();
+  
+  delay(200); // Wait for serial data to be sent so the next Serial.begin doesn't cause problems
+  
+  // Keep going until loop_step reaches done
+  while (loop_step < done)
+  {
+    switch (loop_step) {
+  
+      // ************************************************************************************************
+      // Print the welcome message
+      case loop_init:
+  
+        Serial.print(F("Test 6 Step "));
+        Serial.print(num_tests);
+        Serial.println(F(": Putting the Artemis into deep sleep for five seconds..."));
+        Serial.print(F("Test 6 Step "));
+        Serial.print(num_tests);
+        Serial.println(F(": (If the Artemis does not wake up again, the test has failed.)"));
+        
+        Serial.print(F("Test 6 Step "));
+        Serial.print(num_tests);
+        Serial.print(F(": RTC is: "));
+  
+        loop_step = send_time_1; // Move on, send the time
+        
+        break; // End of case loop_init
+  
+      // ************************************************************************************************
+      // Print the time (millis and RTC)
+      case send_time_1:
+  
+        // Get the RTC time
+        am_hal_rtc_time_t rtc_time;
+        am_hal_rtc_time_get(&rtc_time);
+      
+        // Print the RTC time
+        if (rtc_time.ui32Hour < 10) Serial.print(F("0"));
+        Serial.print(rtc_time.ui32Hour);
+        Serial.print(F(":"));
+        if (rtc_time.ui32Minute < 10) Serial.print(F("0"));
+        Serial.print(rtc_time.ui32Minute);
+        Serial.print(F(":"));
+        if (rtc_time.ui32Second < 10) Serial.print(F("0"));
+        Serial.print(rtc_time.ui32Second);
+        Serial.println();
+  
+        delay(200); // Wait for serial data to be sent so the Serial.end doesn't cause problems
+  
+        loop_step = zzz; // Move on, go to sleep
+        
+        break; // End of case send_time_1
+  
+      // ************************************************************************************************
+      // Go to sleep
+      case zzz:
+      
+        Serial.end(); // Close the serial console
+  
+        // Code taken (mostly) from the LowPower_WithWake example and the and OpenLog_Artemis PowerDownRTC example
+        
+        // Turn off ADC
+        power_adc_disable();
+    
+        // Set the clock frequency.
+        am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_SYSCLK_MAX, 0);
+    
+        // Set the default cache configuration
+        am_hal_cachectrl_config(&am_hal_cachectrl_defaults);
+        am_hal_cachectrl_enable();
+    
+        // Note: because we called setupRTC earlier,
+        // we do NOT want to call am_bsp_low_power_init() here.
+        // It would configure the board for low power operation
+        // and calls am_hal_pwrctrl_low_power_init()
+        // but it also stops the RTC oscillator!
+        // (BSP = Board Support Package)
+  
+        // Initialize for low power in the power control block
+        // "Initialize BLE Buck Trims for Lowest Power"
+        am_hal_pwrctrl_low_power_init();
+    
+        // Disabling the debugger GPIOs saves about 1.2 uA total:
+        am_hal_gpio_pinconfig(20 /* SWDCLK */, g_AM_HAL_GPIO_DISABLE);
+        am_hal_gpio_pinconfig(21 /* SWDIO */, g_AM_HAL_GPIO_DISABLE);
+    
+        // These two GPIOs are critical: the TX/RX connections between the Artemis module and the CH340S on the Blackboard
+        // are prone to backfeeding each other. To stop this from happening, we must reconfigure those pins as GPIOs
+        // and then disable them completely:
+        am_hal_gpio_pinconfig(48 /* TXO-0 */, g_AM_HAL_GPIO_DISABLE);
+        am_hal_gpio_pinconfig(49 /* RXI-0 */, g_AM_HAL_GPIO_DISABLE);
+    
+        // The default Arduino environment runs the System Timer (STIMER) off the 48 MHZ HFRC clock source.
+        // The HFRC appears to take over 60 uA when it is running, so this is a big source of extra
+        // current consumption in deep sleep.
+        // For systems that might want to use the STIMER to generate a periodic wakeup, it needs to be left running.
+        // However, it does not have to run at 48 MHz. If we reconfigure STIMER (system timer) to use the 32768 Hz
+        // XTAL clock source instead the measured deepsleep power drops by about 64 uA.
+        am_hal_stimer_config(AM_HAL_STIMER_CFG_CLEAR | AM_HAL_STIMER_CFG_FREEZE);
+    
+        // This option selects 32768 Hz via crystal osc. This appears to cost about 0.1 uA versus selecting "no clock"
+        am_hal_stimer_config(AM_HAL_STIMER_XTAL_32KHZ);
+    
+        // Turn OFF Flash1
+        // There is a chance this could fail but I guess we should move on regardless and not do a while(1);
+        am_hal_pwrctrl_memory_enable(AM_HAL_PWRCTRL_MEM_FLASH_512K);
+    
+        // Power down SRAM
+        // Nathan seems to have gone a little off script here and isn't using
+        // am_hal_pwrctrl_memory_deepsleep_powerdown or 
+        // am_hal_pwrctrl_memory_deepsleep_retain. I wonder why?
+        PWRCTRL->MEMPWDINSLEEP_b.SRAMPWDSLP = PWRCTRL_MEMPWDINSLEEP_SRAMPWDSLP_ALLBUTLOWER64K;
+  
+    
+        // This while loop keeps the processor asleep until INTERVAL seconds have passed
+        while (!interval_alarm) // Wake up every INTERVAL seconds
+        {
+          // Go to Deep Sleep.
+          am_hal_sysctrl_sleep(AM_HAL_SYSCTRL_SLEEP_DEEP);
+        }
+        interval_alarm = false; // Clear the alarm flag now
+  
+  
+        // Wake up!
+        loop_step = wake;
+  
+        break; // End of case zzz
+        
+      // ************************************************************************************************
+      // Wake from sleep
+      case wake:
+  
+        // Set the clock frequency. (redundant?)
+        am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_SYSCLK_MAX, 0);
+    
+        // Set the default cache configuration. (redundant?)
+        am_hal_cachectrl_config(&am_hal_cachectrl_defaults);
+        am_hal_cachectrl_enable();
+    
+        // Note: because we called setupRTC earlier,
+        // we do NOT want to call am_bsp_low_power_init() here.
+        // It would configure the board for low power operation
+        // and calls am_hal_pwrctrl_low_power_init()
+        // but it also stops the RTC oscillator!
+        // (BSP = Board Support Package)
+  
+        // Initialize for low power in the power control block.  (redundant?)
+        am_hal_pwrctrl_low_power_init();
+    
+        // Power up SRAM
+        PWRCTRL->MEMPWDINSLEEP_b.SRAMPWDSLP = PWRCTRL_MEMPWDINSLEEP_SRAMPWDSLP_NONE;
+        
+        // Turn on Flash
+        // There is a chance this could fail but I guess we should move on regardless and not do a while(1);
+        am_hal_pwrctrl_memory_enable(AM_HAL_PWRCTRL_MEM_ALL);
+        
+        // Go back to using the main clock
+        am_hal_stimer_int_enable(AM_HAL_STIMER_INT_OVERFLOW); // (posssibly redundant?)
+        NVIC_EnableIRQ(STIMER_IRQn); // (posssibly redundant?)
+        am_hal_stimer_config(AM_HAL_STIMER_CFG_CLEAR | AM_HAL_STIMER_CFG_FREEZE);
+        am_hal_stimer_config(AM_HAL_STIMER_HFRC_3MHZ);
+  
+        // Restore the TX/RX connections between the Artemis module and the CH340S
+        am_hal_gpio_pinconfig(48 /* TXO-0 */, g_AM_BSP_GPIO_COM_UART_TX);
+        am_hal_gpio_pinconfig(49 /* RXI-0 */, g_AM_BSP_GPIO_COM_UART_RX);
+  
+        // Reenable the debugger GPIOs
+        am_hal_gpio_pinconfig(20 /* SWDCLK */, g_AM_BSP_GPIO_SWDCK);
+        am_hal_gpio_pinconfig(21 /* SWDIO */, g_AM_BSP_GPIO_SWDIO);
+  
+        // Turn on ADC
+        ap3_adc_setup();
+  
+        // Send the time again and check the interval
+        loop_step = send_time_2;
+    
+        break; // End of case wake
+  
+      // ************************************************************************************************
+      // Print the time (millis and RTC)
+      case send_time_2:
+  
+        // Get the RTC time
+        am_hal_rtc_time_t new_rtc_time;
+        am_hal_rtc_time_get(&new_rtc_time);
+      
+        // Start the console serial port again (zzz will have ended it)
+        Serial.begin(115200);
+        Serial.println();
+  
+        Serial.print(F("Test 6 Step "));
+        Serial.print(num_tests);
+        Serial.print(F(": RTC is: "));
+  
+        // Print the RTC time
+        if (new_rtc_time.ui32Hour < 10) Serial.print(F("0"));
+        Serial.print(new_rtc_time.ui32Hour);
+        Serial.print(F(":"));
+        if (new_rtc_time.ui32Minute < 10) Serial.print(F("0"));
+        Serial.print(new_rtc_time.ui32Minute);
+        Serial.print(F(":"));
+        if (new_rtc_time.ui32Second < 10) Serial.print(F("0"));
+        Serial.print(new_rtc_time.ui32Second);
+        Serial.println();
+
+        uint32_t start_secs = (rtc_time.ui32Hour * 3600) + (rtc_time.ui32Minute * 60) + rtc_time.ui32Second;
+        uint32_t end_secs = (new_rtc_time.ui32Hour * 3600) + (new_rtc_time.ui32Minute * 60) + new_rtc_time.ui32Second;
+      
+        if ((end_secs >= (start_secs + 4)) && (end_secs <= (start_secs + 6)))
+        {
+          Serial.print(F("Test 6 Step "));
+          Serial.print(num_tests);
+          Serial.println(F(": Passed"));
+        }
+        else
+        {
+          Serial.print(F("Test 6 Step "));
+          Serial.print(num_tests);
+          Serial.print(F(": "));
+          fail();        
+        }
+  
+        num_tests++; //Increment the test number
+
+        if (num_tests == 4)
+        {
+          loop_step = done; // We're done
+        }
+        else
+        {
+          loop_step = loop_init; // Do it again
+        }
+        
+        break; // End of case send_time_2
+  
+    } // End of switch (loop_step)
+  } // End of while (loop_step < done)
+
+  if (testFailed == false)
+  {
+    Serial.println(F("Test 6: Passed"));
   }
 
 // -----------------------------------------------------------------------
