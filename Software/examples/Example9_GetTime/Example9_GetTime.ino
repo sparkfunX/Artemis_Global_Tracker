@@ -155,12 +155,41 @@ void setup()
     return;
   }
 
+  // Get the IMEI
+  char IMEI[16];
+  err = modem.getIMEI(IMEI, sizeof(IMEI));
+  if (err != ISBD_SUCCESS)
+  {
+     Serial.print(F("getIMEI failed: error "));
+     Serial.println(err);
+     return;
+  }
+  Serial.print(F("IMEI is "));
+  Serial.print(IMEI);
+  Serial.println(F("."));
+
 }
 
 void loop()
 {
+    // Check the signal quality.
+    // This returns a number between 0 and 5.
+    // 2 or better is preferred.
+    int signalQuality = -1;
+    int err = modem.getSignalQuality(signalQuality);
+    if (err != ISBD_SUCCESS)
+    {
+      Serial.print(F("SignalQuality failed: error "));
+      Serial.println(err);
+      return;
+    }
+  
+    Serial.print(F("On a scale of 0 to 5, signal quality is currently "));
+    Serial.print(signalQuality);
+    Serial.println(F("."));
+    
    struct tm t;
-   int err = modem.getSystemTime(t);
+   err = modem.getSystemTime(t);
    if (err == ISBD_SUCCESS)
    {
       char buf[32];
@@ -172,7 +201,7 @@ void loop()
 
    else if (err == ISBD_NO_NETWORK) // Did it fail because the transceiver has not yet seen the network?
    {
-      Serial.println(F("No network detected.  Waiting 10 seconds."));
+      Serial.println(F("No network detected.  Waiting 5 seconds."));
    }
 
    else
@@ -182,8 +211,8 @@ void loop()
       return;
    }
 
-   // Delay 10 seconds
-   delay(10 * 1000UL);
+   // Delay 5 seconds
+   delay(5 * 1000UL);
 }
 
 #if DIAGNOSTICS
