@@ -39,7 +39,7 @@
 
 #include <Wire.h>
 
-#include <SparkFun_PHT_MS8607_Arduino_Library.h> //http://librarymanager/All#MS8607
+#include <SparkFun_PHT_MS8607_Arduino_Library.h> //http://librarymanager/All#SparkFun_MS8607
 
 //Create an instance of the MS8607 object
 MS8607 barometricSensor;
