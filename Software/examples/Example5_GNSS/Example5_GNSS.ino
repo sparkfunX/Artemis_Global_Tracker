@@ -134,8 +134,19 @@ void loop()
     Serial.print(longitude,7);
 
     float altitude = (float)myGPS.getAltitudeMSL() / 1000.0; // Get the altitude above Mean Sea Level in m
-    Serial.print(F("   Alt: "));
+    Serial.print(F("   Alt (MSL): "));
     Serial.print(altitude,2);
+    Serial.print(F(" (m)"));
+    
+    float altitude_2 = (float)myGPS.getAltitude() / 1000.0; // Get the altitude
+    Serial.print(F(" Alt: "));
+    Serial.print(altitude_2);
+    Serial.print(F(" (m)"));
+    
+    byte SIV = myGPS.getSIV(); // Satellites In View
+    Serial.print(F(" SIV: "));
+    Serial.print(SIV);
+
   }
 
   Serial.println();
