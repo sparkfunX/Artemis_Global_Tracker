@@ -40,7 +40,7 @@ Via the USB, Lipo battery or "Solar" (external power) connectors:
 
 ## How much current does the AGT draw?
 
-In deep sleep, with the Power LED disconnected, the AGT draws a standby current of approximately 220µA.
+In deep sleep, with the Power LED disconnected, the AGT draws a current of approximately 220µA.
 
 The maximum current draw is dictated by the LTC3225 supercapacitor charge current:
 - The LTC3225 has an efficiency of approximately 80% at 3.3V V<sub>IN</sub> at 100mA charge current

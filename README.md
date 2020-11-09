@@ -25,4 +25,4 @@ An open source global satellite tracker utilising the [SparkFun Artemis module](
 - [Hardware overview](Documentation/Hardware_Overview/README.md): an overview of the hardware
 - The Artemis pin allocation is summarised [here](Documentation/Hardware_Overview/ARTEMIS_PINS.md)
 - [Message Format](Documentation/Message_Format/README.md): a definition of the message format and fields (both binary and text) for the full GlobalTracker example
-- [GlobalTracker FAQs](Documentation/GlobalTracker_FAQs/README.md): information to help you configure the full GlobalTracker example
+- [GlobalTracker FAQs](Documentation/GlobalTracker_FAQs/README.md): information to help you operate and configure the AGT
