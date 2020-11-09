@@ -3,6 +3,10 @@
 These FAQs assume you are running the [full Global Tracker (Example16)](../../Software/examples/Example16_GlobalTracker)
 
 ## Contents:
+- [What voltage does the AGT need?](#What-voltage-does-the-AGT-need)
+- [How much current does the AGT draw?](#How-much-current-does-the-AGT-draw)
+- [Which antenna should I use?](#Which-antenna-should-I-use)
+- [Can I use an active antenna?](#Can-I-use-an-active-antenna)
 - [How do I configure the messages sent by the tracker?](#How-do-I-configure-the-messages-sent-by-the-tracker)
 - [How do I send binary messages?](#How-do-I-send-binary-messages)
 - [How do I enable RockBLOCK message forwarding?](#How-do-I-enable-RockBLOCK-message-forwarding)
@@ -12,6 +16,47 @@ These FAQs assume you are running the [full Global Tracker (Example16)](../../So
 - [How do I define and trigger a user function?](#How-do-I-define-and-trigger-a-user-function)
 - [How do I send a user value?](#How-do-I-send-a-user-value)
 - [How can I see the location of my trackers on a map?](#How-can-I-see-the-location-of-my-trackers-on-a-map)
+
+## What voltage does the AGT need?
+
+Please refer to the [Power Options](../Hardware_Overview#power-options) in the Hardware Overview.
+
+**Important Note:** We recommend that you power the AGT using the USB, Lipo battery and/or "Solar" power connectors.
+If you choose to power the AGT via the VBUS breakout pin, there will be no reverse-polarity protection and _bad things could happen_
+when connecting another power source.
+
+Via the VBUS breakout pin:
+- Maximum: 6.0V
+- Recommended Minimum: 3.4V
+  - The AP2112K 3.3V regulator has a dropout voltage of 100mV at 250mA at 25°C
+- Actual Minimum: 3.2V (Approx.)
+  - The LTC3225 supercapacitor charger requires a minimum of 2.8V and is powered by the AP2112K
+  - The Artemis and ZOE GNSS have lower minimum voltages
+
+Via the USB, Lipo battery or "Solar" (external power) connectors:
+- Maximum: 6.0V
+- Minimum: add approximately 350mV to the above figures
+  - The PMEG4005 reverse-protection diode has a forward voltage of approx. 350mV at 300mA at 25°C
+
+## How much current does the AGT draw?
+
+In deep sleep, with the Power LED disconnected, the AGT draws a standby current of approximately 220µA.
+
+The maximum current draw is dictated by the LTC3225 supercapacitor charge current:
+- The LTC3225 has an efficiency of approximately 80% at 3.3V V<sub>IN</sub> at 100mA charge current
+- Using the maximum charge current of 150mA, the LTC3225 will draw approximately 200mA
+- The typical total current draw during supercapacitor charging is 250mA
+
+## Which antenna should I use?
+
+We recommend [this one](https://www.sparkfun.com/products/15789). It is optimized for Iridium but provides good signal in the
+GNSS bands too. You can find antennas optimized for both Iridium and GNSS but they tend to be more expensive.
+
+## Can I use an active antenna?
+
+No. Two reasons:
+- The [antenna switch circuit](../Hardware_Overview#antenna-switch) includes a DC-blocking capacitor
+- The Iridium transmit would almost certainly damage an active preamplifier
 
 ## How do I configure the messages sent by the tracker?
 
