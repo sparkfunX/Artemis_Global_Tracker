@@ -3,6 +3,7 @@
 These FAQs assume you are running the [full Global Tracker (Example16)](../../Software/examples/Example16_GlobalTracker)
 
 ## Contents:
+- [Do I need the extra 10F supercapacitors?](#Do-I-need-the-extra-10F-supercapacitors)
 - [What voltage does the AGT need?](#What-voltage-does-the-AGT-need)
 - [How much current does the AGT draw?](#How-much-current-does-the-AGT-draw)
 - [Which antenna should I use?](#Which-antenna-should-I-use)
@@ -16,6 +17,23 @@ These FAQs assume you are running the [full Global Tracker (Example16)](../../So
 - [How do I define and trigger a user function?](#How-do-I-define-and-trigger-a-user-function)
 - [How do I send a user value?](#How-do-I-send-a-user-value)
 - [How can I see the location of my trackers on a map?](#How-can-I-see-the-location-of-my-trackers-on-a-map)
+
+## Do I need the extra 10F supercapacitors?
+
+The AGT comes with 1F supercapacitors installed. You only need to add the additional 10F capacitors on the bottom of the board if you decide to
+change the supercapacitor charge current from 150mA to 60mA.
+
+Background:
+
+The LTC3225 supercapacitor charger charge current is adjustable up to a maximum of 150mA. When set to the full 150mA, the LTC3225 can match the 145mA average current
+drawn by the 9603N during transmit. This means that 1 Farad supercapacitors are adequate as they only need to hold enough charge to meet the
+9603N's 1.3A peak current draw during the very brief (8.3ms) transmit bursts.
+
+If you want to power the Global Tracker from a low current source, e.g. solar panels, the charge current can be reduced to 60mA by
+changing the **Charge Current** jumper link. The 60mA charge current is enough to offset the 9603N's 39mA average current draw during receive,
+but bigger supercapacitors are needed to deliver the average current draw during a complete receive/transmit cycle.
+So, if you do change the charge current to 60mA, you will also need to solder additional 10 Farad supercapacitors on to
+the rear of the PCB using the solder pads provided.
 
 ## What voltage does the AGT need?
 
