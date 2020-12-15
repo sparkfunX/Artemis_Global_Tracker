@@ -3,7 +3,7 @@
   Example: Test Low Power
   
   Written by Paul Clark (PaulZC)
-  30th January 2020
+  December 15th, 2020
 
   This example test the Artemis low power mode and in particular:
   tests that millis is still running afterwards; checks the RTC;
@@ -30,6 +30,14 @@
 
   SparkFun labored with love to create this code. Feel like supporting open source hardware?
   Buy a board from SparkFun!
+
+  Version history:
+  December 15th, 2020:
+    Adding the deep sleep code from OpenLog Artemis.
+    Keep RAM powered up during sleep to prevent corruption above 64K.
+    Restore busVoltagePin (Analog in) after deep sleep.
+  January 30th, 2020:
+    Original release
 
 */
 
@@ -229,57 +237,27 @@ void loop()
       
       // Turn off ADC
       power_adc_disable();
-  
-      // Set the clock frequency.
-      am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_SYSCLK_MAX, 0);
-  
-      // Set the default cache configuration
-      am_hal_cachectrl_config(&am_hal_cachectrl_defaults);
-      am_hal_cachectrl_enable();
-  
-      // Note: because we called setupRTC earlier,
-      // we do NOT want to call am_bsp_low_power_init() here.
-      // It would configure the board for low power operation
-      // and calls am_hal_pwrctrl_low_power_init()
-      // but it also stops the RTC oscillator!
-      // (BSP = Board Support Package)
-
-      // Initialize for low power in the power control block
-      // "Initialize BLE Buck Trims for Lowest Power"
-      am_hal_pwrctrl_low_power_init();
-  
+        
       // Disabling the debugger GPIOs saves about 1.2 uA total:
       am_hal_gpio_pinconfig(20 /* SWDCLK */, g_AM_HAL_GPIO_DISABLE);
       am_hal_gpio_pinconfig(21 /* SWDIO */, g_AM_HAL_GPIO_DISABLE);
   
-      // These two GPIOs are critical: the TX/RX connections between the Artemis module and the CH340S on the Blackboard
+      // These two GPIOs are critical: the TX/RX connections between the Artemis module and the CH340S
       // are prone to backfeeding each other. To stop this from happening, we must reconfigure those pins as GPIOs
       // and then disable them completely:
       am_hal_gpio_pinconfig(48 /* TXO-0 */, g_AM_HAL_GPIO_DISABLE);
       am_hal_gpio_pinconfig(49 /* RXI-0 */, g_AM_HAL_GPIO_DISABLE);
   
-      // The default Arduino environment runs the System Timer (STIMER) off the 48 MHZ HFRC clock source.
-      // The HFRC appears to take over 60 uA when it is running, so this is a big source of extra
-      // current consumption in deep sleep.
-      // For systems that might want to use the STIMER to generate a periodic wakeup, it needs to be left running.
-      // However, it does not have to run at 48 MHz. If we reconfigure STIMER (system timer) to use the 32768 Hz
-      // XTAL clock source instead the measured deepsleep power drops by about 64 uA.
-      am_hal_stimer_config(AM_HAL_STIMER_CFG_CLEAR | AM_HAL_STIMER_CFG_FREEZE);
-  
-      // This option selects 32768 Hz via crystal osc. This appears to cost about 0.1 uA versus selecting "no clock"
-      am_hal_stimer_config(AM_HAL_STIMER_XTAL_32KHZ);
-  
-      // Turn OFF Flash1
-      // There is a chance this could fail but I guess we should move on regardless and not do a while(1);
-      am_hal_pwrctrl_memory_enable(AM_HAL_PWRCTRL_MEM_FLASH_512K);
-  
-      // Power down SRAM
-      // Nathan seems to have gone a little off script here and isn't using
-      // am_hal_pwrctrl_memory_deepsleep_powerdown or 
-      // am_hal_pwrctrl_memory_deepsleep_retain. I wonder why?
-      PWRCTRL->MEMPWDINSLEEP_b.SRAMPWDSLP = PWRCTRL_MEMPWDINSLEEP_SRAMPWDSLP_ALLBUTLOWER64K;
+      //Power down Flash, SRAM, cache
+      am_hal_pwrctrl_memory_deepsleep_powerdown(AM_HAL_PWRCTRL_MEM_CACHE);         //Turn off CACHE
+      am_hal_pwrctrl_memory_deepsleep_powerdown(AM_HAL_PWRCTRL_MEM_FLASH_512K);    //Turn off everything but lower 512k
+      //am_hal_pwrctrl_memory_deepsleep_powerdown(AM_HAL_PWRCTRL_MEM_SRAM_64K_DTCM); //Turn off everything but lower 64k? Be careful here. "Global variables use 56180 bytes of dynamic memory."
 
-  
+      //Keep the 32kHz clock running for RTC
+      am_hal_stimer_config(AM_HAL_STIMER_CFG_CLEAR | AM_HAL_STIMER_CFG_FREEZE);
+      am_hal_stimer_config(AM_HAL_STIMER_XTAL_32KHZ);
+
+
       // This while loop keeps the processor asleep until INTERVAL seconds have passed
       while (!interval_alarm) // Wake up every INTERVAL seconds
       {
@@ -298,46 +276,26 @@ void loop()
     // Wake from sleep
     case wake:
 
-      // Set the clock frequency. (redundant?)
-      am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_SYSCLK_MAX, 0);
-  
-      // Set the default cache configuration. (redundant?)
-      am_hal_cachectrl_config(&am_hal_cachectrl_defaults);
-      am_hal_cachectrl_enable();
-  
-      // Note: because we called setupRTC earlier,
-      // we do NOT want to call am_bsp_low_power_init() here.
-      // It would configure the board for low power operation
-      // and calls am_hal_pwrctrl_low_power_init()
-      // but it also stops the RTC oscillator!
-      // (BSP = Board Support Package)
-
-      // Initialize for low power in the power control block.  (redundant?)
-      am_hal_pwrctrl_low_power_init();
-  
-      // Power up SRAM
-      PWRCTRL->MEMPWDINSLEEP_b.SRAMPWDSLP = PWRCTRL_MEMPWDINSLEEP_SRAMPWDSLP_NONE;
-      
-      // Turn on Flash
-      // There is a chance this could fail but I guess we should move on regardless and not do a while(1);
-      am_hal_pwrctrl_memory_enable(AM_HAL_PWRCTRL_MEM_ALL);
-      
-      // Go back to using the main clock
-      am_hal_stimer_int_enable(AM_HAL_STIMER_INT_OVERFLOW); // (posssibly redundant?)
-      NVIC_EnableIRQ(STIMER_IRQn); // (posssibly redundant?)
+      //Power up SRAM, turn on entire Flash
+      am_hal_pwrctrl_memory_deepsleep_powerdown(AM_HAL_PWRCTRL_MEM_MAX);
+    
+      //Go back to using the main clock
+      //am_hal_stimer_int_enable(AM_HAL_STIMER_INT_OVERFLOW);
+      //NVIC_EnableIRQ(STIMER_IRQn);
       am_hal_stimer_config(AM_HAL_STIMER_CFG_CLEAR | AM_HAL_STIMER_CFG_FREEZE);
       am_hal_stimer_config(AM_HAL_STIMER_HFRC_3MHZ);
-
-      // Restore the TX/RX connections between the Artemis module and the CH340S
+    
+      // Restore the TX/RX connections between the Artemis module and the CH340S on the Blackboard
       am_hal_gpio_pinconfig(48 /* TXO-0 */, g_AM_BSP_GPIO_COM_UART_TX);
       am_hal_gpio_pinconfig(49 /* RXI-0 */, g_AM_BSP_GPIO_COM_UART_RX);
 
       // Reenable the debugger GPIOs
       am_hal_gpio_pinconfig(20 /* SWDCLK */, g_AM_BSP_GPIO_SWDCK);
       am_hal_gpio_pinconfig(21 /* SWDIO */, g_AM_BSP_GPIO_SWDIO);
-
-      // Turn on ADC
+  
+      //Turn on ADC
       ap3_adc_setup();
+      ap3_set_pin_to_analog(busVoltagePin);
 
       // Do it all again!
       loop_step = send_time;
