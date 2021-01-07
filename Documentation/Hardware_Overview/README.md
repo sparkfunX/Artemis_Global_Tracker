@@ -17,6 +17,8 @@ The design also makes use of the:
 
 The full schematic for the tracker can be found [here](../../Hardware/Schematic.pdf)
 
+Additional information can be found in the [FAQs](../GlobalTracker_FAQs/README.md)
+
 ## The Artemis Module
 
 The heart of the tracker is, of course, the most excellent Artemis module from SparkFun. The pad allocation is defined [here](../Hardware_Overview/ARTEMIS_PINS.md).
