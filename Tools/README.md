@@ -14,9 +14,9 @@ Please refer to the [GlobalTracker FAQs](../Documentation/GlobalTracker_FAQs/REA
 
 First select the message fields (MOFIELDS) that you want the tracker to send. If you are going to use the Mapper (see below)
 to track the tracker, you need to select **DATETIME**, **LAT**, **LON**, **ALT**, **SPEED** and **HEAD**. Tick the _Include_ checkbox for **MOFIELDS** too
-otherwise the settings will not be updated. The Mapper expects text messages so ensure the FLAGS1 _Send message in binary format_ box
-is not ticked. Tick the **FLAGS1** _Include_ checkbox too to make sure FLAGS1 is updated. Click _Calculate Config_ to generate
-the configuration message.
+otherwise the settings will not be updated. The Mapper expects text messages, while the Message Translator can translate binary messages.
+Depending on which program you want to use, either tick the FLAGS1 _Send message in binary format_ box or ensure it is not ticked.
+Tick the **FLAGS1** _Include_ checkbox too to make sure FLAGS1 is updated. Click _Calculate Config_ to generate the configuration message.
 
 You can upload the configuration to a tracker locally by:
   - Connecting the tracker via a USB-C cable
@@ -44,6 +44,7 @@ convert the .csv file into .kml files for Google Earth; and display the real-tim
 
 The tools are:
 - **Artemis_Global_Tracker_GMail_Downloader.py:** a Python3 tool which uses the GMail API to download messages from the tracker from your GMail account.
+- **Artemis_Global_Tracker_Message_Translator.py:** a Python 3 tool to translate binary SBD messages. It can read messages from local files or an IMAP server and optionally create a GPX file from all read messages.
 - **Artemis_Global_Tracker_Mapper.py:** a Python3 PyQt5 tool which will read the tracker messages downloaded by the Downloader and display the location and routes of up to eight trackers on Google Maps Static images.
 - **Artemis_Global_Tracker_Stitcher.py:** this tool will stitch the individual tracker messages downloaded by the Downloader together into combined .csv files. Each tracker gets its own .csv file.
 - **Artemis_Global_Tracker_CSV_DateTime.py:** this tool will convert the first column of the stitched .csv files from YYYYMMDDHHMMSS DateTime format into a more friendly DD/MM/YY,HH:MM:SS format.
@@ -79,6 +80,29 @@ then click _Allow_; then click _Allow_ again. If the credentials were created su
 When you run the Downloader, it will automatically check your GMail inbox every 15 seconds for new tracker messages. When it finds one, it will download the SBD .bin attachment to to your computer,
 mark the message as seen (read) and 'move' it to a folder called SBD by changing the message labels. This avoids clogging up your inbox. All of the messages are in SBD if you need to download the
 attachments again.
+
+### Artemis_Global_Tracker_Message_Translator.py:
+
+A command-line script to translate binary SBD messages. Give the files to translate as argument, e.g. `*.bin`. To write coordinates into a GPX track, use the `-o` option combined with an output filename.
+Example:
+```
+python3 Artemis_Global_Tracker_Message_Translator.py *.bin -o track.gpx
+```
+
+Alternatively, messages can be read from email attachments from an IMAP server with the `-i` option. In this case, give the name of an ini file with the server details as argument. The ini file should
+look as follows:
+```
+[email]
+host = imap.mymailserver.com
+user = myusername
+password = mypassword
+from = 300123456789012@rockblock.rock7.com
+```
+Adjust the entries according to your configuration. The `from` entry filters messages according to sender and is handy to select messages from a specific device. Write just `@rockblock.rock7.com`
+to process all messages from RockBLOCK. By default, the script only retrieves new messages. Use the `-a` option to retrieve all messages. Example for invoking the script:
+```
+python3 Artemis_Global_Tracker_Message_Translator.py -i imap_settings.ini -a -o track.gpx
+```
 
 ### Artemis_Global_Tracker_Mapper.py:
 

@@ -9,7 +9,8 @@ Written by: Andreas Schneider
 License: MIT
 
 This code translates binary SBD messages by the Artemis Global Tracker.
-Optionally, it can create a GPX file with the coordinates of all messages.
+Messages can be read from local files or from email attachments on an IMAP server.
+Optionally, the coordinates of all messages can be written into a GPX file.
 """
 
 import numpy as np
@@ -18,6 +19,10 @@ import datetime
 import struct
 import gpxpy
 import gpxpy.gpx
+import configparser
+import imaplib
+import email
+import os.path
 import argparse
 
 
@@ -283,6 +288,65 @@ def message2trackpoint(msg):
                 msg['LAT'], msg['LON'], elevation=msg['ALT'], time=msg['DATETIME'],
                 comment='{} hPa'.format(msg['PRESS']) if 'PRESS' in msg else None)
 
+def query_mail(imap, from_address='@rockblock.rock7.com', unseen_only=True):
+    """
+    Query IMAP server for new mails from IRIDIUM gateway and extract new messages.
+
+    Args:
+        imap, imaplib object with open connection
+        from_address, sender address to filter for
+        unseen_only, whether to only retrieve unseen messages (default: True)
+
+    Returns:
+        sbd_list, list of sbd attachments
+    """
+    sbd_list = []
+    imap.select('Inbox')
+    criteria = ['FROM', from_address]
+    if unseen_only:
+        criteria.append('(UNSEEN)')
+    retcode, messages = imap.search(None, *criteria)
+    for num in messages[0].split():
+        typ, data = imap.fetch(num, '(RFC822)')
+        raw_message = data[0][1]
+        message = email.message_from_bytes(raw_message)
+        # Download attachments
+        for part in message.walk():
+            if part.get_content_maintype() == 'multipart':
+                continue
+            if part.get('Content-Disposition') is None:
+                continue
+            filename = part.get_filename()
+            if bool(filename):
+                _, fileext = os.path.splitext(filename)
+                if fileext in ['.sbd', '.bin']:
+                    sbd_list.append(part.get_payload(decode=True))
+                else:
+                    print('query_mail: unrecognized file extension {} of attachment.'.format(fileext))
+    return sbd_list
+
+def get_messages(imap, from_address='@rockblock.rock7.com', all_messges=False):
+    """
+    Get IRIDIUM SBD messages from IMAP.
+
+    Args:
+        imap, imaplib object with open connection
+        from_address, sender address to filter for
+        unseen_only, whether to only retrieve unseen messages (default: True)
+
+    Returns:
+        messages, translated messages as a list of dictionaries
+    """
+    messages = []
+    sbd_list = query_mail(imap, from_address=from_address, unseen_only=not all_messges)
+    for sbd in sbd_list:
+        try:
+            messages.append(translate_sbd(sbd))
+        except (ValueError, AssertionError) as err:
+            print('Error translating message: ',err)
+            pass
+    return messages
+
 def write_gpx(gpx_track, output_file):
     """
     Write a track to a GPX file.
@@ -299,23 +363,37 @@ def write_gpx(gpx_track, output_file):
         fd.write(gpx.to_xml())
     return
 
-def main(filelist, output_file=None):
+def main(filelist, use_imap=False, all_messages=False, output_file=None):
     """
     Main function.
     """
     if output_file:
         gpx_segment = gpxpy.gpx.GPXTrackSegment()
-    for filename in filelist:
-        with open(filename,'rb') as fd:
-            msg_bin = fd.read()
-            try:
-                msg_trans = translate_sbd(msg_bin)
-            except (ValueError, AssertionError, IndexError) as err:
-                print('Error translating message {}: {}'.format(filename, err))
-                continue
-            print(filename, msg_trans)
+    if use_imap:
+        config = configparser.ConfigParser()
+        config.read(filelist[0])
+        hostname = config['email']['host']
+        print('Connecting to {} ...'.format(hostname))
+        imap = imaplib.IMAP4_SSL(hostname) # connect to host using SSL
+        imap.login(config['email']['user'], config['email']['password']) # login to server
+        messages = get_messages(imap, from_address=config['email'].get('from', fallback='@rockblock.rock7.com'), all_messges=all_messages)
+        imap.close()
+        for msg in messages:
+            print(msg)
             if output_file:
-                gpx_segment.points.append(message2trackpoint(msg_trans))
+                gpx_segment.points.append(message2trackpoint(msg))
+    else:
+        for filename in filelist:
+            with open(filename,'rb') as fd:
+                msg_bin = fd.read()
+                try:
+                    msg_trans = translate_sbd(msg_bin)
+                except (ValueError, AssertionError, IndexError) as err:
+                    print('Error translating message {}: {}'.format(filename, err))
+                    continue
+                print(filename, msg_trans)
+                if output_file:
+                    gpx_segment.points.append(message2trackpoint(msg_trans))
     if output_file:
         gpx_track = gpxpy.gpx.GPXTrack()
         gpx_track.segments.append(gpx_segment)
@@ -326,6 +404,10 @@ def main(filelist, output_file=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='+', help='Files to translate')
+    parser.add_argument('-i', '--imap', required=False, action='store_true', default=False, help='Query imap server instead of reading local files. filenames argument will be interpreted as ini file.')
+    parser.add_argument('-a', '--all', required=False, action='store_true', default=False, help='Retrieve all messages, not only unread ones. Only relevant in combination with -i.')
     parser.add_argument('-o', '--output', required=False, default=None, help='Optional output GPX file')
     args = parser.parse_args()
-    main(args.filenames, output_file=args.output)
+    if args.imap:
+        assert (len(args.filenames) == 1), 'In combination with the -i option, exactly one file name must be given, namely the ini file.'
+    main(args.filenames, use_imap=args.imap, all_messages=args.all, output_file=args.output)
