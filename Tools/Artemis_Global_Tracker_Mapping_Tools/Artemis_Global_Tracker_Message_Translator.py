@@ -185,11 +185,13 @@ Conversion factors for data fields according to documentation.
 """
 CONVERSION_FACTOR = {
         TrackerMessageFields.BATTV: 1e-2,
+        TrackerMessageFields.TEMP: 1e-2,
         TrackerMessageFields.HUMID: 1e-2,
         TrackerMessageFields.LAT: 1e-7,
         TrackerMessageFields.LON: 1e-7,
         TrackerMessageFields.ALT: 1e-3,
         TrackerMessageFields.HEAD: 1e-7,
+        TrackerMessageFields.PDOP: 1e-2,
         TrackerMessageFields.HITEMP: 1e-2,
         TrackerMessageFields.LOTEMP: 1e-2,
         TrackerMessageFields.HIHUMID: 1e-2,
