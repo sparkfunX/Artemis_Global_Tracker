@@ -1838,7 +1838,7 @@ void loop()
 
           // ---------- MOFIELDS2 ----------
 
-          if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS2_GEOF2RAD) == MOFIELDS2_GEOF2RAD) // If the bit is set
+          if ((myTrackerSettings.MOFIELDS[2].the_data & MOFIELDS2_GEOF2RAD) == MOFIELDS2_GEOF2RAD) // If the bit is set
           {
             outBufferBinary[outBufferPtr++] = GEOF2RAD; // Add the field ID
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF2RAD.the_bytes[0]; // Add the data
@@ -1846,7 +1846,7 @@ void loop()
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF2RAD.the_bytes[2];
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF2RAD.the_bytes[3];
           }
-          if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS2_GEOF3LAT) == MOFIELDS2_GEOF3LAT) // If the bit is set
+          if ((myTrackerSettings.MOFIELDS[2].the_data & MOFIELDS2_GEOF3LAT) == MOFIELDS2_GEOF3LAT) // If the bit is set
           {
             outBufferBinary[outBufferPtr++] = GEOF3LAT; // Add the field ID
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF3LAT.the_bytes[0]; // Add the data
@@ -1854,7 +1854,7 @@ void loop()
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF3LAT.the_bytes[2];
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF3LAT.the_bytes[3];
           }
-          if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS2_GEOF3LON) == MOFIELDS2_GEOF3LON) // If the bit is set
+          if ((myTrackerSettings.MOFIELDS[2].the_data & MOFIELDS2_GEOF3LON) == MOFIELDS2_GEOF3LON) // If the bit is set
           {
             outBufferBinary[outBufferPtr++] = GEOF3LON; // Add the field ID
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF3LON.the_bytes[0]; // Add the data
@@ -1862,7 +1862,7 @@ void loop()
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF3LON.the_bytes[2];
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF3LON.the_bytes[3];
           }
-          if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS2_GEOF3RAD) == MOFIELDS2_GEOF3RAD) // If the bit is set
+          if ((myTrackerSettings.MOFIELDS[2].the_data & MOFIELDS2_GEOF3RAD) == MOFIELDS2_GEOF3RAD) // If the bit is set
           {
             outBufferBinary[outBufferPtr++] = GEOF3RAD; // Add the field ID
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF3RAD.the_bytes[0]; // Add the data
@@ -1870,7 +1870,7 @@ void loop()
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF3RAD.the_bytes[2];
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF3RAD.the_bytes[3];
           }
-          if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS2_GEOF4LAT) == MOFIELDS2_GEOF4LAT) // If the bit is set
+          if ((myTrackerSettings.MOFIELDS[2].the_data & MOFIELDS2_GEOF4LAT) == MOFIELDS2_GEOF4LAT) // If the bit is set
           {
             outBufferBinary[outBufferPtr++] = GEOF4LAT; // Add the field ID
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF4LAT.the_bytes[0]; // Add the data
@@ -1878,7 +1878,7 @@ void loop()
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF4LAT.the_bytes[2];
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF4LAT.the_bytes[3];
           }
-          if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS2_GEOF4LON) == MOFIELDS2_GEOF4LON) // If the bit is set
+          if ((myTrackerSettings.MOFIELDS[2].the_data & MOFIELDS2_GEOF4LON) == MOFIELDS2_GEOF4LON) // If the bit is set
           {
             outBufferBinary[outBufferPtr++] = GEOF4LON; // Add the field ID
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF4LON.the_bytes[0]; // Add the data
@@ -1886,7 +1886,7 @@ void loop()
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF4LON.the_bytes[2];
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF4LON.the_bytes[3];
           }
-          if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS2_GEOF4RAD) == MOFIELDS2_GEOF4RAD) // If the bit is set
+          if ((myTrackerSettings.MOFIELDS[2].the_data & MOFIELDS2_GEOF4RAD) == MOFIELDS2_GEOF4RAD) // If the bit is set
           {
             outBufferBinary[outBufferPtr++] = GEOF4RAD; // Add the field ID
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF4RAD.the_bytes[0]; // Add the data
@@ -1894,7 +1894,7 @@ void loop()
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF4RAD.the_bytes[2];
             outBufferBinary[outBufferPtr++] = myTrackerSettings.GEOF4RAD.the_bytes[3];
           }
-          if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS2_WAKEINT) == MOFIELDS2_WAKEINT) // If the bit is set
+          if ((myTrackerSettings.MOFIELDS[2].the_data & MOFIELDS2_WAKEINT) == MOFIELDS2_WAKEINT) // If the bit is set
           {
             outBufferBinary[outBufferPtr++] = WAKEINT; // Add the field ID
             outBufferBinary[outBufferPtr++] = myTrackerSettings.WAKEINT.the_bytes[0]; // Add the data
@@ -1902,25 +1902,25 @@ void loop()
             outBufferBinary[outBufferPtr++] = myTrackerSettings.WAKEINT.the_bytes[2];
             outBufferBinary[outBufferPtr++] = myTrackerSettings.WAKEINT.the_bytes[3];
           }
-          if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS2_ALARMINT) == MOFIELDS2_ALARMINT) // If the bit is set
+          if ((myTrackerSettings.MOFIELDS[2].the_data & MOFIELDS2_ALARMINT) == MOFIELDS2_ALARMINT) // If the bit is set
           {
             outBufferBinary[outBufferPtr++] = ALARMINT; // Add the field ID
             outBufferBinary[outBufferPtr++] = myTrackerSettings.ALARMINT.the_bytes[0]; // Add the data
             outBufferBinary[outBufferPtr++] = myTrackerSettings.ALARMINT.the_bytes[1];
           }
-          if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS2_TXINT) == MOFIELDS2_TXINT) // If the bit is set
+          if ((myTrackerSettings.MOFIELDS[2].the_data & MOFIELDS2_TXINT) == MOFIELDS2_TXINT) // If the bit is set
           {
             outBufferBinary[outBufferPtr++] = TXINT; // Add the field ID
             outBufferBinary[outBufferPtr++] = myTrackerSettings.TXINT.the_bytes[0]; // Add the data
             outBufferBinary[outBufferPtr++] = myTrackerSettings.TXINT.the_bytes[1];
           }
-          if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS2_LOWBATT) == MOFIELDS2_LOWBATT) // If the bit is set
+          if ((myTrackerSettings.MOFIELDS[2].the_data & MOFIELDS2_LOWBATT) == MOFIELDS2_LOWBATT) // If the bit is set
           {
             outBufferBinary[outBufferPtr++] = LOWBATT; // Add the field ID
             outBufferBinary[outBufferPtr++] = myTrackerSettings.LOWBATT.the_bytes[0]; // Add the data
             outBufferBinary[outBufferPtr++] = myTrackerSettings.LOWBATT.the_bytes[1];
           }
-          if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS2_DYNMODEL) == MOFIELDS2_DYNMODEL) // If the bit is set
+          if ((myTrackerSettings.MOFIELDS[2].the_data & MOFIELDS2_DYNMODEL) == MOFIELDS2_DYNMODEL) // If the bit is set
           {
             outBufferBinary[outBufferPtr++] = DYNMODEL; // Add the field ID
             outBufferBinary[outBufferPtr++] = myTrackerSettings.DYNMODEL; // Add the data
