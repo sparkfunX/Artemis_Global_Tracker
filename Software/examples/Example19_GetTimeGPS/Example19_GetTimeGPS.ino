@@ -1,9 +1,8 @@
 /*
  Artemis Global Tracker
- Example: GNSS
+ Example: GetTimeGPS
 
- Written by Paul Clark (PaulZC)
- 30th January 2020
+ Simple mod from Paul Clark (PaulZC)'s Sketch from 30th January 2020
 
  ** Set the Board to "SparkFun Artemis Module" **
 
@@ -83,7 +82,7 @@ void setup()
   Serial.println();
   Serial.println();
   Serial.println(F("Artemis Global Tracker"));
-  Serial.println(F("Example: GNSS"));
+  Serial.println(F("Example: GetTimeGPS"));
   Serial.println();
 
   //empty the serial buffer
@@ -125,28 +124,33 @@ void loop()
 
   if(fixType > 0)
   {
-    float latitude = (float)myGPS.getLatitude() / 10000000.0; // Get the latitude in degrees
-    Serial.print(F("   Lat: "));
-    Serial.print(latitude,7);
-
-    float longitude = (float)myGPS.getLongitude() / 10000000.0; // Get the longitude in degrees
-    Serial.print(F("   Long: "));
-    Serial.print(longitude,7);
-
-    float altitude = (float)myGPS.getAltitudeMSL() / 1000.0; // Get the altitude above Mean Sea Level in m
-    Serial.print(F("   Alt (MSL): "));
-    Serial.print(altitude,2);
-    Serial.print(F(" (m)"));
-    
-    float altitude_2 = (float)myGPS.getAltitude() / 1000.0; // Get the altitude
-    Serial.print(F(" Alt: "));
-    Serial.print(altitude_2);
-    Serial.print(F(" (m)"));
-    
-    byte SIV = myGPS.getSIV(); // Satellites In View
+    byte SIV = myGPS.getSIV();
     Serial.print(F(" SIV: "));
     Serial.print(SIV);
+    Serial.print(" ");
+    Serial.print(myGPS.getYear());
+    Serial.print("-");
+    Serial.print(myGPS.getMonth());
+    Serial.print("-");
+    Serial.print(myGPS.getDay());
+    Serial.print(" ");
+    Serial.print(myGPS.getHour());
+    Serial.print(":");
+    Serial.print(myGPS.getMinute());
+    Serial.print(":");
+    Serial.print(myGPS.getSecond());
 
+    Serial.print("  Time is ");
+    if (myGPS.getTimeValid() == false)
+    {
+      Serial.print("not ");
+    }
+    Serial.print("valid  Date is ");
+    if (myGPS.getDateValid() == false)
+    {
+      Serial.print("not ");
+    }
+    Serial.print("valid");
   }
 
   Serial.println();
