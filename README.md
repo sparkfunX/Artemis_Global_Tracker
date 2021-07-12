@@ -26,3 +26,15 @@ An open source global satellite tracker utilising the [SparkFun Artemis module](
 - The Artemis pin allocation is summarised [here](Documentation/Hardware_Overview/ARTEMIS_PINS.md)
 - [Message Format](Documentation/Message_Format/README.md): a definition of the message format and fields (both binary and text) for the full GlobalTracker example
 - [GlobalTracker FAQs](Documentation/GlobalTracker_FAQs/README.md): information to help you operate and configure the AGT
+
+## License Information
+
+This product is _**open source**_!
+
+Please review the LICENSE.md file for license information.
+
+If you have any questions or concerns on licensing, please contact technical support on our [SparkFun forums](https://forum.sparkfun.com/viewforum.php?f=105).
+
+Distributed as-is; no warranty is given.
+
+- Your friends at SparkFun.
