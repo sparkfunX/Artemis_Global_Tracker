@@ -7,7 +7,7 @@ Which is handy if you want to quickly update the firmware in the field, or are n
 
 To use:
 
-* Download and extract the [AGT repo ZIP](https://github.com/sparkfun/Artemis_Global_Tracker/archive/master.zip)
+* Download and extract the [AGT repo ZIP](https://github.com/sparkfun/Artemis_Global_Tracker/archive/main.zip)
 * Download and extract the [AFU repo ZIP](https://github.com/sparkfun/Artemis-Firmware-Upload-GUI/archive/master.zip)
 * Run the AFU artemis_firmware_uploader_gui executable for your platform
   * **/Windows** contains the Windows .exe
