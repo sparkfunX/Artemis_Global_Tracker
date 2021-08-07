@@ -79,8 +79,8 @@ Please refer to the [GlobalTracker FAQs](../../Documentation/GlobalTracker_FAQs/
 <br/>
 
 To run the examples, you will need to install **v2.1.0** of the SparkFun Apollo3 core and then set the board to the "**RedBoard Artemis ATP**":
-- At the time of writing, v2.1.1 of the core conatins a feature which makes communication with the u-blox GNSS problematic. Be sure to use **v2.1.0**
-- https://learn.sparkfun.com/tutorials/artemis-development-with-arduino
+- At the time of writing, v2.1.1 of the core contains a feature which makes communication with the u-blox GNSS problematic. Be sure to use **v2.1.0**
+- https://learn.sparkfun.com/tutorials/artemis-development-with-the-arduino-ide
  
 You will need to install [this version of the Iridium SBD library](https://github.com/sparkfun/SparkFun_IridiumSBD_I2C_Arduino_Library)
 - (Available through the Arduino Library Manager: search for IridiumSBDi2c)
