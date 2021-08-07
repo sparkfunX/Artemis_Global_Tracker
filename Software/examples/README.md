@@ -78,20 +78,17 @@ Please refer to the [GlobalTracker FAQs](../../Documentation/GlobalTracker_FAQs/
 
 <br/>
 
-To run the examples, you will need to install **v2.1.1** of the SparkFun Apollo3 core and then set the board to the "Artemis Module":
+To run the examples, you will need to install **v2.1.0** of the SparkFun Apollo3 core and then set the board to the "**RedBoard Artemis ATP**":
+- At the time of writing, v2.1.1 of the core conatins a feature which makes communication with the u-blox GNSS problematic. Be sure to use **v2.1.0**
 - https://learn.sparkfun.com/tutorials/artemis-development-with-arduino
-
-You will need to install this version of the Iridium SBD library:
--  https://github.com/sparkfun/SparkFun_IridiumSBD_I2C_Arduino_Library
+ 
+You will need to install [this version of the Iridium SBD library](https://github.com/sparkfun/SparkFun_IridiumSBD_I2C_Arduino_Library)
 - (Available through the Arduino Library Manager: search for IridiumSBDi2c)
 
-You will also need to install the Qwiic_PHT_MS8607_Library:
--  https://github.com/sparkfun/SparkFun_PHT_MS8607_Arduino_Library
+You will also need to install the [Qwiic_PHT_MS8607_Library](https://github.com/sparkfun/SparkFun_PHT_MS8607_Arduino_Library)
 - (Available through the Arduino Library Manager: search for SparkFun MS8607)
 
-You also need the SparkFun u-blox GNSS library:
-- https://github.com/sparkfun/SparkFun_u-blox_GNSS_Arduino_Library
+You also need the [SparkFun u-blox GNSS library](https://github.com/sparkfun/SparkFun_u-blox_GNSS_Arduino_Library)
 - (Available through the Arduino Library Manager: search for SparkFun u-blox GNSS)
 
-Basic information on how to install an Arduino library is available here:
-- https://learn.sparkfun.com/tutorials/installing-an-arduino-library
+Basic information on how to install an Arduino library is available [here](https://learn.sparkfun.com/tutorials/installing-an-arduino-library)
