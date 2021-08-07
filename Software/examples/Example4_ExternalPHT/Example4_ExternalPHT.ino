@@ -3,9 +3,12 @@
  Example: External Pressure, Humidity, Temperature
 
  Written by Paul Clark (PaulZC)
- 7th June 2020
+ August 7th 2021
 
- ** Set the Board to "SparkFun Artemis Module" **
+ ** Updated for v2.1.0 of the Apollo3 core / Artemis board package **
+ ** Set the Board to "RedBoard Artemis ATP" **
+
+ ** (The Artemis Module does not have a Wire port defined, which prevents the MS8607 library from compiling) **
 
  This example reads the pressure, humidity and temperature from an external MS8607 sensor
  connected to the Qwiic port.
@@ -17,7 +20,7 @@
  Basic information on how to install an Arduino library is available here:
  https://learn.sparkfun.com/tutorials/installing-an-arduino-library
 
- The MS8607 is connected to Qwiic I2C Port 4 (Wire4): SCL = D39; SDA = D40
+ The MS8607 is connected to Qwiic I2C Port 4: SCL = D39; SDA = D40
 
 */
 
@@ -39,7 +42,7 @@
 // If you do, bad things might happen to the AS179 RF switch!
 
 #include <Wire.h>
-TwoWire myWire(4); //Will use Artemis pads 39/40
+TwoWire qwiic(40,39); //Will use Artemis pads 39 (SCL) and 40 (SDA)
 
 #include <SparkFun_PHT_MS8607_Arduino_Library.h> //http://librarymanager/All#MS8607
 
@@ -64,7 +67,7 @@ void setup()
   gnssOFF(); // Disable power for the GNSS
 
   // Set up the I2C pins
-  myWire.begin();
+  qwiic.begin();
 
   // Start the console serial port
   Serial.begin(115200);
@@ -89,10 +92,10 @@ void setup()
   while(Serial.available() == 0)
     ;
 
-  if (barometricSensor.begin(myWire) == false)
+  if (barometricSensor.begin(qwiic) == false)
   {
     Serial.println("MS8607 sensor did not respond. Trying again...");
-    if (barometricSensor.begin(myWire) == false)
+    if (barometricSensor.begin(qwiic) == false)
     {
       Serial.println("MS8607 sensor did not respond. Please check wiring.");
       while(1)

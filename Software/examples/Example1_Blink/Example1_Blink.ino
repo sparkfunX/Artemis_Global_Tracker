@@ -3,12 +3,13 @@
  Example: Blink
 
  Written by Paul Clark (PaulZC)
- 30th January 2020
+ August 7th 2021
 
  Flashes the white LED on the Artemis Tracker
  The LED is connected to D19
 
- ** Set the Board to "SparkFun Artemis Module" **
+ ** Updated for v2.1.0 of the Apollo3 core / Artemis board package **
+ ** Set the Board to "RedBoard Artemis ATP" **
 
  If this example runs successfully, you can (hopefully) be confident that:
  The 3.3V regulator is working correctly

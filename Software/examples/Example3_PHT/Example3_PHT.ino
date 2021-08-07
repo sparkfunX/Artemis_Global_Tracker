@@ -3,20 +3,23 @@
  Example: Pressure, Humidity, Temperature
 
  Written by Paul Clark (PaulZC)
- 7th June 2020
+ August 7th 2021
 
- ** Set the Board to "SparkFun Artemis Module" **
+ ** Updated for v2.1.0 of the Apollo3 core / Artemis board package **
+ ** Set the Board to "RedBoard Artemis ATP" **
+
+ ** (The Artemis Module does not have a Wire port defined, which prevents the MS8607 library from compiling) **
 
  This example reads the pressure, humidity and temperature from the on-board MS8607 sensor.
  
  You will also need to install the Qwiic_PHT_MS8607_Library:
  https://github.com/sparkfun/SparkFun_PHT_MS8607_Arduino_Library
- (Available through the Arduino Library Manager: search for MS8607)
+ (Available through the Arduino Library Manager: search for SparkFun MS8607)
 
  Basic information on how to install an Arduino library is available here:
  https://learn.sparkfun.com/tutorials/installing-an-arduino-library
 
- The MS8607 is connected to I2C Port 1 (Wire1): SCL = D8; SDA = D9
+ The MS8607 is connected to I2C Port 1: SCL = D8; SDA = D9
 
 */
 
@@ -38,8 +41,9 @@
 // If you do, bad things might happen to the AS179 RF switch!
 
 #include <Wire.h>
+TwoWire agtWire(9,8); //Create an I2C port using pads 8 (SCL) and 9 (SDA)
 
-#include <SparkFun_PHT_MS8607_Arduino_Library.h> //http://librarymanager/All#MS8607
+#include <SparkFun_PHT_MS8607_Arduino_Library.h> //http://librarymanager/All#SparkFun_MS8607
 
 //Create an instance of the MS8607 object
 MS8607 barometricSensor;
@@ -62,7 +66,7 @@ void setup()
   gnssOFF(); // Disable power for the GNSS
 
   // Set up the I2C pins
-  Wire1.begin();
+  agtWire.begin();
 
   // Start the console serial port
   Serial.begin(115200);
@@ -87,10 +91,10 @@ void setup()
   while(Serial.available() == 0)
     ;
 
-  if (barometricSensor.begin(Wire1) == false)
+  if (barometricSensor.begin(agtWire) == false)
   {
     Serial.println("MS8607 sensor did not respond. Trying again...");
-    if (barometricSensor.begin(Wire1) == false)
+    if (barometricSensor.begin(agtWire) == false)
     {
       Serial.println("MS8607 sensor did not respond. Please check wiring.");
       while(1)
