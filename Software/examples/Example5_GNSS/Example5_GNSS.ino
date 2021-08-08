@@ -48,9 +48,9 @@
 // If you do, bad things might happen to the AS179 RF switch!
 
 #include <Wire.h> // Needed for I2C
-const byte PIN_QWIIC_SCL = 8;
-const byte PIN_QWIIC_SDA = 9;
-TwoWire agtWire(PIN_QWIIC_SDA, PIN_QWIIC_SCL); //Create an I2C port using pads 8 (SCL) and 9 (SDA)
+const byte PIN_AGTWIRE_SCL = 8;
+const byte PIN_AGTWIRE_SDA = 9;
+TwoWire agtWire(PIN_AGTWIRE_SDA, PIN_AGTWIRE_SCL); //Create an I2C port using pads 8 (SCL) and 9 (SDA)
 
 #include "SparkFun_u-blox_GNSS_Arduino_Library.h" //http://librarymanager/All#SparkFun_u-blox_GNSS
 SFE_UBLOX_GNSS myGNSS;
@@ -110,9 +110,9 @@ void setup()
   gnssON(); // Enable power for the GNSS
   delay(1000); // Let the ZOE power up
 
-  if (myGNSS.begin(agtWire) == false) //Connect to the Ublox module using pads 8 & 9
+  if (myGNSS.begin(agtWire) == false) //Connect to the u-blox module using pads 8 & 9
   {
-    Serial.println(F("Ublox GNSS not detected at default I2C address. Please check wiring. Freezing."));
+    Serial.println(F("u-blox GNSS not detected at default I2C address. Please check wiring. Freezing."));
     while (1);
   }
 
@@ -190,6 +190,6 @@ void setAGTWirePullups(uint32_t i2cBusPullUps)
     sdaPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_24K;
   }
 
-  pin_config(PinName(PIN_QWIIC_SCL), sclPinCfg);
-  pin_config(PinName(PIN_QWIIC_SDA), sdaPinCfg);
+  pin_config(PinName(PIN_AGTWIRE_SCL), sclPinCfg);
+  pin_config(PinName(PIN_AGTWIRE_SDA), sdaPinCfg);
 }

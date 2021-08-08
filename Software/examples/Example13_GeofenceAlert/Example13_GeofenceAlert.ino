@@ -3,9 +3,13 @@
  Example: Geofence Alert
 
  Written by Paul Clark (PaulZC)
- 30th January 2020
+ August 7th 2021
 
- ** Set the Board to "SparkFun Artemis Module" **
+ ** Updated for v2.1.0 of the Apollo3 core / Artemis board package **
+ ** (At the time of writing, v2.1.1 of the core conatins a feature which makes communication with the u-blox GNSS problematic. Be sure to use v2.1.0) **
+
+ ** Set the Board to "RedBoard Artemis ATP" **
+ ** (The Artemis Module does not have a Wire port defined, which prevents the GNSS library from compiling) **
 
  This example powers up the ZOE-M8Q and reads the fix.
  Once a valid 3D fix has been found, the code reads the latitude and longitude.
@@ -21,9 +25,9 @@
  
  You will need to install the SparkFun u-blox library before this example
  will run successfully:
- https://github.com/sparkfun/SparkFun_Ublox_Arduino_Library
+ https://github.com/sparkfun/SparkFun_u-blox_GNSS_Arduino_Library
 
- The ZOE-M8Q shares I2C Port 1 (Wire1) with the MS8607: SCL = D8; SDA = D9
+ The ZOE-M8Q shares I2C Port 1 with the MS8607: SCL = D8; SDA = D9
 
  Power for the ZOE is switched via Q2.
  D26 needs to be pulled low to enable the GNSS power.
@@ -54,9 +58,12 @@
 // If you do, bad things might happen to the AS179 RF switch!
 
 #include <Wire.h> // Needed for I2C
+const byte PIN_AGTWIRE_SCL = 8;
+const byte PIN_AGTWIRE_SDA = 9;
+TwoWire agtWire(PIN_AGTWIRE_SDA, PIN_AGTWIRE_SCL); //Create an I2C port using pads 8 (SCL) and 9 (SDA)
 
-#include "SparkFun_Ublox_Arduino_Library.h" //http://librarymanager/All#SparkFun_Ublox_GPS
-SFE_UBLOX_GPS myGPS;
+#include "SparkFun_u-blox_GNSS_Arduino_Library.h" //http://librarymanager/All#SparkFun_u-blox_GNSS
+SFE_UBLOX_GNSS myGNSS;
 
 // geofencePin Interrupt Service Routine
 // (Always keep ISRs as short as possible, don't do anything clever in them,
@@ -90,10 +97,14 @@ void setup()
   gnssOFF(); // Disable power for the GNSS
   pinMode(geofencePin, INPUT); // Configure the geofence pin as an input
 
-  attachInterrupt(digitalPinToInterrupt(geofencePin), geofenceISR, CHANGE); // Call geofenceISR whenever geofencePin changes state
+  // Call geofenceISR whenever geofencePin changes state
+  // Note that in v2.1.0 of the core, this causes an immediate interrupt
+  attachInterrupt(geofencePin, geofenceISR, CHANGE);
 
   // Set up the I2C pins
-  Wire1.begin();
+  agtWire.begin();
+  agtWire.setClock(100000); // Use 100kHz for best performance
+  setAGTWirePullups(0); // Remove the pull-ups from the I2C pins (internal to the Artemis) for best performance
 
   // Start the console serial port
   Serial.begin(115200);
@@ -107,14 +118,14 @@ void setup()
   gnssON(); // Enable power for the GNSS
   delay(1000); // Let the ZOE power up
   
-  if (myGPS.begin(Wire1) == false) //Connect to the Ublox module using Wire1 port
+  if (myGNSS.begin(agtWire) == false) //Connect to the u-blox module using agtWire
   {
-    Serial.println(F("Ublox GPS not detected at default I2C address. Please check wiring. Freezing."));
+    Serial.println(F("u-blox GNSS not detected at default I2C address. Please check wiring. Freezing."));
     while (1);
   }
 
-  //myGPS.enableDebugging(); // Enable debug messages
-  myGPS.setI2COutput(COM_TYPE_UBX); // Limit I2C output to UBX (disable the NMEA noise)
+  //myGNSS.enableDebugging(); // Enable debug messages
+  myGNSS.setI2COutput(COM_TYPE_UBX); // Limit I2C output to UBX (disable the NMEA noise)
 
   Serial.println(F("Waiting for a 3D fix..."));
 
@@ -122,7 +133,7 @@ void setup()
 
   while (fixType != 3) // Wait for a 3D fix
   {
-    fixType = myGPS.getFixType(); // Get the fix type
+    fixType = myGNSS.getFixType(); // Get the fix type
     Serial.print(F("Fix: "));
     Serial.print(fixType);
     if(fixType == 0) Serial.print(F(" = No fix"));
@@ -136,11 +147,11 @@ void setup()
 
   Serial.println(F("3D fix found! Setting the geofence..."));
 
-  long latitude = myGPS.getLatitude(); // Get the latitude in degrees * 10^-7
+  long latitude = myGNSS.getLatitude(); // Get the latitude in degrees * 10^-7
   Serial.print(F("Lat: "));
   Serial.print(latitude);
 
-  long longitude = myGPS.getLongitude(); // Get the longitude in degrees * 10^-7
+  long longitude = myGNSS.getLongitude(); // Get the longitude in degrees * 10^-7
   Serial.print(F("   Long: "));
   Serial.println(longitude);
 
@@ -149,12 +160,12 @@ void setup()
   byte pinPolarity = 0; // Set the PIO pin polarity: 0 = low means inside, 1 = low means outside (or unknown)
   byte pin = 14; // ZOE-M8Q PIO14 is connected to the geofencePin
 
-  //myGPS.clearGeofences();// Clear all existing geofences.
+  //myGNSS.clearGeofences();// Clear all existing geofences.
 
   // It is possible to define up to four geofences.
   // Call addGeofence up to four times to define them.
   // The geofencePin will indicate the combined state of all active geofences.
-  myGPS.addGeofence(latitude, longitude, radius, confidence, pinPolarity, pin); // Add the geofence
+  myGNSS.addGeofence(latitude, longitude, radius, confidence, pinPolarity, pin); // Add the geofence
 
   delay(1000); // Let the geofence do its thing
 
@@ -163,7 +174,7 @@ void setup()
   digitalWrite(LED, !digitalRead(geofencePin)); // Update the LED.
 
   // Put the ZOE-M8Q into power save mode
-  if (myGPS.powerSaveMode() == true)
+  if (myGNSS.powerSaveMode() == true)
   {
     Serial.println(F("GNSS Power Save Mode enabled."));
   }
@@ -173,68 +184,83 @@ void setup()
   }
 
   Serial.println(F("Going into deep sleep..."));
+  Serial.println();
 
-  delay(1000); // Wait for serial data to be sent so the Serial.end doesn't cause problems
+  Serial.flush(); // Wait for serial data to be sent so the Serial.end doesn't cause problems
 
-  Serial.end(); // Close the serial console
-
-  // Code taken from the LowPower_WithWake example
-  // and the Ambiq deepsleep_wake example
+  // Code taken (mostly) from Apollo3 Example6_Low_Power_Alarm
   
-  //Turn off ADC
-  power_adc_disable();
+  // Disable UART
+  Serial.end();
 
-  // Set the clock frequency.
-  am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_SYSCLK_MAX, 0);
+  // Disable ADC
+  powerControlADC(false);
 
-  // Set the default cache configuration
-  am_hal_cachectrl_config(&am_hal_cachectrl_defaults);
-  am_hal_cachectrl_enable();
+  // Force the peripherals off
+  am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_IOM0);
+  am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_IOM1);
+  am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_IOM2);
+  am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_IOM3);
+  am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_IOM4);
+  am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_IOM5);
+  am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_ADC);
+  am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_UART0);
+  am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_UART1);
 
-  // Configure the board for low power operation.
-  // (This will disable the RTC)
-  am_bsp_low_power_init();
+  // Disable all unused pins - including UART0 TX (48) and RX (49)
+  const int pinsToDisable[] = {0,1,2,11,12,14,15,16,20,21,29,31,32,36,37,38,42,43,44,45,48,49,-1};
+  for (int x = 0; pinsToDisable[x] >= 0; x++)
+  {
+    am_hal_gpio_pinconfig(pinsToDisable[x], g_AM_HAL_GPIO_DISABLE);
+  }
 
-  // Disabling the debugger GPIOs saves about 1.2 uA total:
-  am_hal_gpio_pinconfig(20 /* SWDCLK */, g_AM_HAL_GPIO_DISABLE);
-  am_hal_gpio_pinconfig(21 /* SWDIO */, g_AM_HAL_GPIO_DISABLE);
-
-  // These two GPIOs are critical: the TX/RX connections between the Artemis module and the CH340S on the Blackboard
-  // are prone to backfeeding each other. To stop this from happening, we must reconfigure those pins as GPIOs
-  // and then disable them completely:
-  am_hal_gpio_pinconfig(48 /* TXO-0 */, g_AM_HAL_GPIO_DISABLE);
-  am_hal_gpio_pinconfig(49 /* RXI-0 */, g_AM_HAL_GPIO_DISABLE);
-
-  // The default Arduino environment runs the System Timer (STIMER) off the 48 MHZ HFRC clock source.
-  // The HFRC appears to take over 60 uA when it is running, so this is a big source of extra
-  // current consumption in deep sleep.
-  // For systems that might want to use the STIMER to generate a periodic wakeup, it needs to be left running.
-  // However, it does not have to run at 48 MHz. If we reconfigure STIMER (system timer) to use the 32768 Hz
-  // XTAL clock source instead the measured deepsleep power drops by about 64 uA.
+  //Power down CACHE, flashand SRAM
+  am_hal_pwrctrl_memory_deepsleep_powerdown(AM_HAL_PWRCTRL_MEM_ALL); // Power down all flash and cache
+  am_hal_pwrctrl_memory_deepsleep_retain(AM_HAL_PWRCTRL_MEM_SRAM_384K); // Retain all SRAM (0.6 uA)
+  
+  // Keep the 32kHz clock running for RTC
   am_hal_stimer_config(AM_HAL_STIMER_CFG_CLEAR | AM_HAL_STIMER_CFG_FREEZE);
-
-  // This option selects 32768 Hz via crystal osc. This appears to cost about 0.1 uA versus selecting "no clock"
   am_hal_stimer_config(AM_HAL_STIMER_XTAL_32KHZ);
-
-  // Turn OFF Flash1
-  // There is a chance this could fail but I guess we should move on regardless and not do a while(1);
-  am_hal_pwrctrl_memory_enable(AM_HAL_PWRCTRL_MEM_FLASH_512K);
-
-  // Power down SRAM
-  // Nathan seems to have gone a little off script here and isn't using
-  // am_hal_pwrctrl_memory_deepsleep_powerdown or 
-  // am_hal_pwrctrl_memory_deepsleep_retain. I wonder why?
-  PWRCTRL->MEMPWDINSLEEP_b.SRAMPWDSLP = PWRCTRL_MEMPWDINSLEEP_SRAMPWDSLP_ALLBUTLOWER64K;
-
-  // Enable GPIO interrupts to the NVIC. (redundant?)
-  NVIC_EnableIRQ(GPIO_IRQn);
-
-  // Enable interrupts to the core. (redundant?)
-  am_hal_interrupt_master_enable();
 }
 
 void loop()
 {
   // Go to Deep Sleep.
   am_hal_sysctrl_sleep(AM_HAL_SYSCTRL_SLEEP_DEEP);
+}
+
+void setAGTWirePullups(uint32_t i2cBusPullUps)
+{
+  //Change SCL and SDA pull-ups manually using pin_config
+  am_hal_gpio_pincfg_t sclPinCfg = g_AM_BSP_GPIO_IOM1_SCL;
+  am_hal_gpio_pincfg_t sdaPinCfg = g_AM_BSP_GPIO_IOM1_SDA;
+
+  if (i2cBusPullUps == 0)
+  {
+    sclPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_NONE; // No pull-ups
+    sdaPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_NONE;
+  }
+  else if (i2cBusPullUps == 1)
+  {
+    sclPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_1_5K; // Use 1K5 pull-ups
+    sdaPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_1_5K;
+  }
+  else if (i2cBusPullUps == 6)
+  {
+    sclPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_6K; // Use 6K pull-ups
+    sdaPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_6K;
+  }
+  else if (i2cBusPullUps == 12)
+  {
+    sclPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_12K; // Use 12K pull-ups
+    sdaPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_12K;
+  }
+  else
+  {
+    sclPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_24K; // Use 24K pull-ups
+    sdaPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_24K;
+  }
+
+  pin_config(PinName(PIN_AGTWIRE_SCL), sclPinCfg);
+  pin_config(PinName(PIN_AGTWIRE_SDA), sdaPinCfg);
 }
