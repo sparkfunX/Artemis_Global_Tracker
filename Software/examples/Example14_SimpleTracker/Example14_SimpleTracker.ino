@@ -65,7 +65,7 @@
 // If you do, bad things might happen to the AS179 RF switch!
 
 //#define noLED // Uncomment this line to disable the White LED
-#define noTX // Uncomment this line to disable the Iridium SBD transmit if you want to test the code without using message credits
+//#define noTX // Uncomment this line to disable the Iridium SBD transmit if you want to test the code without using message credits
 
 // We use Serial1 to communicate with the Iridium modem. Serial1 on the ATP uses pin 24 for TX and 25 for RX. AGT uses the same pins.
 
@@ -90,13 +90,13 @@ MS8607 barometricSensor; //Create an instance of the MS8607 object
 // Define how often messages are sent in SECONDS
 // This is the _quickest_ messages will be sent. Could be much slower than this depending on:
 // capacitor charge time; gnss fix time; Iridium timeout; etc.
-unsigned long INTERVAL = 1 * 60; // 15 minutes
+unsigned long INTERVAL = 15 * 60; // 15 minutes
 
 // Use this to keep a count of the second alarms from the rtc
-volatile unsigned long seconds_count = 0;
+volatile unsigned long secondsCount = 0;
 
 // This flag indicates an interval alarm has occurred
-volatile bool interval_alarm = false;
+volatile bool intervalAlarm = false;
 
 // iterationCounter is incremented each time a transmission is attempted.
 // It helps keep track of whether messages are being sent successfully.
@@ -104,26 +104,26 @@ volatile bool interval_alarm = false;
 long iterationCounter = 0;
 
 // More global variables
-float vbat = 5.0; // Battery voltage
-float latitude = 0.0; // Latitude in degrees
-float longitude = 0.0; // Longitude in degrees
-long altitude = 0; // Altitude above Median Seal Level in m
-float speed = 0.0; // Ground speed in m/s
-byte satellites = 0; // Number of satellites (SVs) used in the solution
-long course = 0; // Course (heading) in degrees
-int pdop = 0;  // Positional Dilution of Precision in m
-int year = 1970; // GNSS Year
-byte month = 1; // GNSS month
-byte day = 1; // GNSS day
-byte hour = 0; // GNSS hours
-byte minute = 0; // GNSS minutes
-byte second = 0; // GNSS seconds
-int milliseconds = 0; // GNSS milliseconds
-float pascals = 0.0; // Atmospheric pressure in Pascals
-float tempC = 0.0; // Temperature in Celcius
-byte fixType = 0; // GNSS fix type: 0=No fix, 1=Dead reckoning, 2=2D, 3=3D, 4=GNSS+Dead reckoning
-bool PGOOD = false; // Flag to indicate if LTC3225 PGOOD is HIGH
-int err; // Error value returned by IridiumSBD.begin
+float agtVbat = 5.0; // Battery voltage
+float agtLatitude = 0.0; // Latitude in degrees
+float agtLongitude = 0.0; // Longitude in degrees
+long  agtAltitude = 0; // Altitude above Median Seal Level in m
+float agtSpeed = 0.0; // Ground speed in m/s
+byte  agtSatellites = 0; // Number of satellites (SVs) used in the solution
+long  agtCourse = 0; // Course (heading) in degrees
+int   agtPDOP = 0;  // Positional Dilution of Precision in m
+int   agtYear = 1970; // GNSS Year
+byte  agtMonth = 1; // GNSS month
+byte  agtDay = 1; // GNSS day
+byte  agtHour = 0; // GNSS hours
+byte  agtMinute = 0; // GNSS minutes
+byte  agtSecond = 0; // GNSS seconds
+int   agtMilliseconds = 0; // GNSS milliseconds
+float agtPascals = 0.0; // Atmospheric pressure in Pascals
+float agtTempC = 0.0; // Temperature in Celcius
+byte  agtFixType = 0; // GNSS fix type: 0=No fix, 1=Dead reckoning, 2=2D, 3=3D, 4=GNSS+Dead reckoning
+bool  agtPGOOD = false; // Flag to indicate if LTC3225 PGOOD is HIGH
+int   agtErr; // Error value returned by IridiumSBD.begin
 
 #define VBAT_LOW 2.8 // Minimum voltage for LTC3225
 
@@ -152,7 +152,7 @@ typedef enum {
   wait_LTC3225,  // Wait TOPUP_timeout seconds to make sure the capacitors are fully charged
   start_9603,    // Power on the 9603N, send the message, check the battery voltage
   zzz,           // Turn everything off and put the processor into deep sleep
-  wakeUp           // Wake from deep sleep, restore the processor clock speed
+  wakeUp         // Wake from deep sleep, restore the processor clock speed
 } loop_steps;
 loop_steps loop_step = loop_init; // Make sure loop_step is set to loop_init
 
@@ -167,29 +167,29 @@ extern "C" void am_rtc_isr(void)
   rtc.clearInterrupt();
 
   // Increment seconds_count
-  seconds_count = seconds_count + 1;
+  secondsCount = secondsCount + 1;
 
-  // Check if interval_alarm should be set
-  if (seconds_count >= INTERVAL)
+  // Check if intervalAlarm should be set
+  if (secondsCount >= INTERVAL)
   {
-    interval_alarm = true;
-    seconds_count = 0;
+    intervalAlarm = true;
+    secondsCount = 0;
   }
 }
 
 // Get the battery (bus) voltage
 // Enable the bus voltage monitor
-// Read the bus voltage and store it in vbat
+// Read the bus voltage and store it in agtVbat
 // Disable the bus voltage monitor to save power
 // Converts the analogread into Volts, compensating for
 // the voltage divider (/3) and the Apollo voltage reference (2.0V)
 // Include a correction factor of 1.09 to correct for the divider impedance
-void get_vbat()
+void getVbat()
 {
   digitalWrite(busVoltageMonEN, HIGH); // Enable the bus voltage monitor
   //analogReadResolution(14); //Set resolution to 14 bit
   delay(1); // Let the voltage settle
-  vbat = ((float)analogRead(busVoltagePin)) * 3.0 * 1.09 * 2.0 / 16384.0;
+  agtVbat = ((float)analogRead(busVoltagePin)) * 3.0 * 1.09 * 2.0 / 16384.0;
   digitalWrite(busVoltageMonEN, LOW); // Disable the bus voltage monitor
 }
 
@@ -208,28 +208,38 @@ bool ISBDCallback()
 
   // Check the battery voltage now we are drawing current for the 9603
   // If voltage is low, stop Iridium send
-  get_vbat(); // Read the battery (bus) voltage
-  if (vbat < VBAT_LOW) {
+  getVbat(); // Read the battery (bus) voltage
+  if (agtVbat < VBAT_LOW)
+  {
     Serial.print(F("*** LOW VOLTAGE (ISBDCallback) "));
-    Serial.print(vbat,2);
+    Serial.print(agtVbat,2);
     Serial.println(F("V ***"));
     return false; // Returning false causes IridiumSBD to terminate
   }
-  else {     
+  else
+  {     
     return true;
   }
 }
 
 void gnssON(void) // Enable power for the GNSS
 {
-  pinMode(gnssEN, OUTPUT); // Configure the pin which enables power for the ZOE-M8Q GNSS
-  digitalWrite(gnssEN, LOW); // Disable GNSS power (HIGH = disable; LOW = enable)
+  am_hal_gpio_pincfg_t pinCfg = g_AM_HAL_GPIO_OUTPUT; // Begin by making the gnssEN pin an open-drain output
+  pinCfg.eGPOutcfg = AM_HAL_GPIO_PIN_OUTCFG_OPENDRAIN;
+  pin_config(PinName(gnssEN), pinCfg);
+  delay(1);
+  
+  digitalWrite(gnssEN, LOW); // Enable GNSS power (HIGH = disable; LOW = enable)
 }
 
 void gnssOFF(void) // Disable power for the GNSS
 {
+  am_hal_gpio_pincfg_t pinCfg = g_AM_HAL_GPIO_OUTPUT; // Begin by making the gnssEN pin an open-drain output
+  pinCfg.eGPOutcfg = AM_HAL_GPIO_PIN_OUTCFG_OPENDRAIN;
+  pin_config(PinName(gnssEN), pinCfg);
+  delay(1);
+  
   digitalWrite(gnssEN, HIGH); // Disable GNSS power (HIGH = disable; LOW = enable)
-  pinMode(gnssEN, INPUT_PULLUP); // Configure the pin which enables power for the ZOE-M8Q GNSS
 }
 
 void setup()
@@ -253,12 +263,13 @@ void setup()
 
   pinMode(busVoltageMonEN, OUTPUT); // Make the Bus Voltage Monitor Enable an output
   digitalWrite(busVoltageMonEN, LOW); // Set it low to disable the measurement to save power
+  analogReadResolution(14); //Set resolution to 14 bit
 
   // Initialise the globals
   iterationCounter = 0; // Make sure iterationCounter is set to zero (indicating a reset)
   loop_step = loop_init; // Make sure loop_step is set to loop_init
-  seconds_count = 0; // Make sure seconds_count is reset
-  interval_alarm = false; // Make sure the interval alarm flag is clear
+  secondsCount = 0; // Make sure seconds_count is reset
+  intervalAlarm = false; // Make sure the interval alarm flag is clear
 
   // Set up the RTC for 1 second interrupts
   /*
@@ -273,7 +284,6 @@ void setup()
   */
   rtc.setAlarmMode(7); // Set the RTC alarm mode
   rtc.attachInterrupt(); // Attach RTC alarm interrupt  
-  
 }
 
 void loop()
@@ -285,8 +295,6 @@ void loop()
     // Initialise things
     case loop_init:
     
-      analogReadResolution(14); //Set resolution to 14 bit
-
       // Start the console serial port and send the welcome message
       Serial.begin(115200);
       delay(1000); // Wait for the user to open the serial monitor (extend this delay if you need more time)
@@ -305,10 +313,10 @@ void loop()
 
       // Check battery voltage
       // If voltage is low, go to sleep
-      get_vbat(); // Get the battery (bus) voltage
-      if (vbat < VBAT_LOW) {
+      getVbat(); // Get the battery (bus) voltage
+      if (agtVbat < VBAT_LOW) {
         Serial.print(F("*** LOW VOLTAGE (init) "));
-        Serial.print(vbat,2);
+        Serial.print(agtVbat,2);
         Serial.println(F(" ***"));
         loop_step = zzz; // Go to sleep
       }
@@ -323,22 +331,21 @@ void loop()
     case start_GNSS:
 
       Serial.println(F("Powering up the GNSS..."));
+      
+      gnssON(); // Enable power for the GNSS
+
+      delay(2000); // Give it time to power up
+
       agtWire.begin(); // Set up the I2C pins
       agtWire.setClock(100000); // Use 100kHz for best performance
       setAGTWirePullups(0); // Remove the pull-ups from the I2C pins (internal to the Artemis) for best performance
-      gnssON(); // Enable power for the GNSS
-      Serial.println(F("HERE")); Serial.flush();
-
-      delay(2000); // Give it time to power up
-      Serial.println(F("HERE")); Serial.flush();
-    
+      
       // Check battery voltage now we are drawing current for the GNSS
-      get_vbat(); // Get the battery (bus) voltage
-      Serial.println(F("HERE")); Serial.flush();
-      if (vbat < VBAT_LOW) {
+      getVbat(); // Get the battery (bus) voltage
+      if (agtVbat < VBAT_LOW) {
         // If voltage is low, turn off the GNSS and go to sleep
         Serial.print(F("*** LOW VOLTAGE (start_GNSS) "));
-        Serial.print(vbat,2);
+        Serial.print(agtVbat,2);
         Serial.println(F("V ***"));
         gnssOFF(); // Disable power for the GNSS
         loop_step = zzz; // Go to sleep
@@ -354,20 +361,20 @@ void loop()
           Serial.println(F("*** Ublox GNSS not detected at default I2C address ***"));
           
           // Set the lat, long etc. to default values
-          latitude = 0.0; // Latitude in degrees
-          longitude = 0.0; // Longitude in degrees
-          altitude = 0; // Altitude above Median Seal Level in m
-          speed = 0.0; // Ground speed in m/s
-          satellites = 0; // Number of satellites (SVs) used in the solution
-          course = 0; // Course (heading) in degrees
-          pdop = 0;  // Positional Dilution of Precision in m
-          year = 1970; // GNSS Year
-          month = 1; // GNSS month
-          day = 1; // GNSS day
-          hour = 0; // GNSS hours
-          minute = 0; // GNSS minutes
-          second = 0; // GNSS seconds
-          milliseconds = 0; // GNSS milliseconds
+          agtLatitude = 0.0; // Latitude in degrees
+          agtLongitude = 0.0; // Longitude in degrees
+          agtAltitude = 0; // Altitude above Median Seal Level in m
+          agtSpeed = 0.0; // Ground speed in m/s
+          agtSatellites = 0; // Number of satellites (SVs) used in the solution
+          agtCourse = 0; // Course (heading) in degrees
+          agtPDOP = 0;  // Positional Dilution of Precision in m
+          agtYear = 1970; // GNSS Year
+          agtMonth = 1; // GNSS month
+          agtDay = 1; // GNSS day
+          agtHour = 0; // GNSS hours
+          agtMinute = 0; // GNSS minutes
+          agtSecond = 0; // GNSS seconds
+          agtMilliseconds = 0; // GNSS milliseconds
   
           // Power down the GNSS
           gnssOFF(); // Disable power for the GNSS
@@ -405,18 +412,18 @@ void loop()
 
       Serial.println(F("Waiting for a 3D GNSS fix..."));
 
-      fixType = 0; // Clear the fix type
+      agtFixType = 0; // Clear the fix type
       
       // Look for GNSS signal for up to GNSS_timeout minutes
-      for (unsigned long tnow = millis(); (fixType != 3) && (millis() - tnow < GNSS_timeout * 60UL * 1000UL);)
+      for (unsigned long tnow = millis(); (agtFixType != 3) && ((millis() - tnow) < (GNSS_timeout * 60UL * 1000UL));)
       {
       
-        fixType = myGNSS.getFixType(); // Get the GNSS fix type
+        agtFixType = myGNSS.getFixType(); // Get the GNSS fix type
         
         // Check battery voltage now we are drawing current for the GNSS
         // If voltage is low, stop looking for GNSS and go to sleep
-        get_vbat();
-        if (vbat < VBAT_LOW) {
+        getVbat();
+        if (agtVbat < VBAT_LOW) {
           break; // Exit the for loop now
         }
 
@@ -435,37 +442,37 @@ void loop()
       }
 
       // If voltage is low then go straight to sleep
-      if (vbat < VBAT_LOW) {
+      if (agtVbat < VBAT_LOW) {
         Serial.print(F("*** LOW VOLTAGE (read_GNSS) "));
-        Serial.print(vbat,2);
+        Serial.print(agtVbat,2);
         Serial.println(F("V ***"));
         
         loop_step = zzz;
       }
 
-      else if (fixType == 3) // Check if we got a valid 3D fix
+      else if (agtFixType == 3) // Check if we got a valid 3D fix
       {
         // Get the time and position etc.
         // Get the time first to hopefully avoid second roll-over problems
-        milliseconds = myGNSS.getMillisecond();
-        second = myGNSS.getSecond();
-        minute = myGNSS.getMinute();
-        hour = myGNSS.getHour();
-        day = myGNSS.getDay();
-        month = myGNSS.getMonth();
-        year = myGNSS.getYear(); // Get the year
-        latitude = (float)myGNSS.getLatitude() / 10000000.0; // Get the latitude in degrees
-        longitude = (float)myGNSS.getLongitude() / 10000000.0; // Get the longitude in degrees
-        altitude = myGNSS.getAltitudeMSL() / 1000; // Get the altitude above Mean Sea Level in m
-        speed = (float)myGNSS.getGroundSpeed() / 1000.0; // Get the ground speed in m/s
-        satellites = myGNSS.getSIV(); // Get the number of satellites used in the fix
-        course = myGNSS.getHeading() / 10000000; // Get the heading in degrees
-        pdop = myGNSS.getPDOP() / 100; // Get the PDOP in m
+        agtMilliseconds = myGNSS.getMillisecond();
+        agtSecond = myGNSS.getSecond();
+        agtMinute = myGNSS.getMinute();
+        agtHour = myGNSS.getHour();
+        agtDay = myGNSS.getDay();
+        agtMonth = myGNSS.getMonth();
+        agtYear = myGNSS.getYear(); // Get the year
+        agtLatitude = (float)myGNSS.getLatitude() / 10000000.0; // Get the latitude in degrees
+        agtLongitude = (float)myGNSS.getLongitude() / 10000000.0; // Get the longitude in degrees
+        agtAltitude = myGNSS.getAltitudeMSL() / 1000; // Get the altitude above Mean Sea Level in m
+        agtSpeed = (float)myGNSS.getGroundSpeed() / 1000.0; // Get the ground speed in m/s
+        agtSatellites = myGNSS.getSIV(); // Get the number of satellites used in the fix
+        agtCourse = myGNSS.getHeading() / 10000000; // Get the heading in degrees
+        agtPDOP = myGNSS.getPDOP() / 100; // Get the PDOP in m
 
         Serial.println(F("A 3D fix was found!"));
-        Serial.print(F("Latitude (degrees): ")); Serial.println(latitude, 6);
-        Serial.print(F("Longitude (degrees): ")); Serial.println(longitude, 6);
-        Serial.print(F("Altitude (m): ")); Serial.println(altitude);
+        Serial.print(F("Latitude (degrees): ")); Serial.println(agtLatitude, 6);
+        Serial.print(F("Longitude (degrees): ")); Serial.println(agtLongitude, 6);
+        Serial.print(F("Altitude (m): ")); Serial.println(agtAltitude);
 
         loop_step = read_pressure; // Move on, read the pressure and temperature
       }
@@ -474,20 +481,20 @@ void loop()
       {
         // We didn't get a 3D fix so
         // set the lat, long etc. to default values
-        latitude = 0.0; // Latitude in degrees
-        longitude = 0.0; // Longitude in degrees
-        altitude = 0; // Altitude above Median Seal Level in m
-        speed = 0.0; // Ground speed in m/s
-        satellites = 0; // Number of satellites (SVs) used in the solution
-        course = 0; // Course (heading) in degrees
-        pdop = 0;  // Positional Dilution of Precision in m
-        year = 1970; // GNSS Year
-        month = 1; // GNSS month
-        day = 1; // GNSS day
-        hour = 0; // GNSS hours
-        minute = 0; // GNSS minutes
-        second = 0; // GNSS seconds
-        milliseconds = 0; // GNSS milliseconds
+        agtLatitude = 0.0; // Latitude in degrees
+        agtLongitude = 0.0; // Longitude in degrees
+        agtAltitude = 0; // Altitude above Median Seal Level in m
+        agtSpeed = 0.0; // Ground speed in m/s
+        agtSatellites = 0; // Number of satellites (SVs) used in the solution
+        agtCourse = 0; // Course (heading) in degrees
+        agtPDOP = 0;  // Positional Dilution of Precision in m
+        agtYear = 1970; // GNSS Year
+        agtMonth = 1; // GNSS month
+        agtDay = 1; // GNSS day
+        agtHour = 0; // GNSS hours
+        agtMinute = 0; // GNSS minutes
+        agtSecond = 0; // GNSS seconds
+        agtMilliseconds = 0; // GNSS milliseconds
 
         Serial.println(F("A 3D fix was NOT found!"));
         Serial.println(F("Using default values..."));
@@ -527,20 +534,20 @@ void loop()
       if (barometricSensorOK == false)
       {
          // Set the pressure and temperature to default values
-        pascals = 0.0;
-        tempC = 0.0;
+        agtPascals = 0.0;
+        agtTempC = 0.0;
       }
       else
       {
-        tempC = barometricSensor.getTemperature();
-        pascals = barometricSensor.getPressure() * 100.0; // Convert pressure from hPa to Pascals
+        agtTempC = barometricSensor.getTemperature();
+        agtPascals = barometricSensor.getPressure() * 100.0; // Convert pressure from hPa to Pascals
 
         Serial.print(F("Temperature="));
-        Serial.print(tempC, 1);
+        Serial.print(agtTempC, 1);
         Serial.print(F("(C)"));
       
         Serial.print(F(" Pressure="));
-        Serial.print(pascals, 1);
+        Serial.print(agtPascals, 1);
         Serial.println(F("(Pa)"));
       }
 
@@ -561,18 +568,18 @@ void loop()
       Serial.println(F("Waiting for supercapacitors to charge..."));
       delay(2000);
 
-      PGOOD = false; // Flag to show if PGOOD is HIGH
+      agtPGOOD = false; // Flag to show if PGOOD is HIGH
       
       // Wait for PGOOD to go HIGH for up to CHG_timeout minutes
-      for (unsigned long tnow = millis(); (!PGOOD) && (millis() - tnow < CHG_timeout * 60UL * 1000UL);)
+      for (unsigned long tnow = millis(); (!agtPGOOD) && (millis() - tnow < CHG_timeout * 60UL * 1000UL);)
       {
       
-        PGOOD = digitalRead(superCapPGOOD); // Read the PGOOD pin
+        agtPGOOD = digitalRead(superCapPGOOD); // Read the PGOOD pin
         
         // Check battery voltage now we are drawing current for the LTC3225
         // If voltage is low, stop charging and go to sleep
-        get_vbat();
-        if (vbat < VBAT_LOW) {
+        getVbat();
+        if (agtVbat < VBAT_LOW) {
           break;
         }
 
@@ -591,15 +598,15 @@ void loop()
       }
 
       // If voltage is low then go straight to sleep
-      if (vbat < VBAT_LOW) {
+      if (agtVbat < VBAT_LOW) {
         Serial.print(F("*** LOW VOLTAGE (start_LTC3225) "));
-        Serial.print(vbat,2);
+        Serial.print(agtVbat,2);
         Serial.println(F("V ***"));
         
         loop_step = zzz;
       }
 
-      else if (PGOOD)
+      else if (agtPGOOD)
       {
         // If the capacitors charged OK
         Serial.println(F("Supercapacitors charged!"));
@@ -624,13 +631,13 @@ void loop()
       Serial.println(F("Giving the supercapacitors extra time to charge..."));
  
       // Wait for TOPUP_timeout seconds, keep checking PGOOD and the battery voltage
-      for (unsigned long tnow = millis(); millis() - tnow < TOPUP_timeout * 1000UL;)
+      for (unsigned long tnow = millis(); (millis() - tnow) < (TOPUP_timeout * 1000UL); )
       {
       
         // Check battery voltage now we are drawing current for the LTC3225
         // If voltage is low, stop charging and go to sleep
-        get_vbat();
-        if (vbat < VBAT_LOW) {
+        getVbat();
+        if (agtVbat < VBAT_LOW) {
           break;
         }
 
@@ -649,15 +656,15 @@ void loop()
       }
 
       // If voltage is low then go straight to sleep
-      if (vbat < VBAT_LOW) {
+      if (agtVbat < VBAT_LOW) {
         Serial.print(F("*** LOW VOLTAGE (wait_LTC3225) "));
-        Serial.print(vbat,2);
+        Serial.print(agtVbat,2);
         Serial.println(F("V ***"));
         
         loop_step = zzz;
       }
 
-      else if (PGOOD)
+      else if (agtPGOOD)
       {
         // If the capacitors are still charged OK
         Serial.println(F("Supercapacitors charged!"));
@@ -696,14 +703,14 @@ void loop()
 
       // Begin satellite modem operation
       Serial.println(F("Starting modem..."));
-      err = modem.begin();
+      agtErr = modem.begin();
 
       // Check if the modem started correctly
-      if (err != ISBD_SUCCESS)
+      if (agtErr != ISBD_SUCCESS)
       {
         // If the modem failed to start, disable it and go to sleep
         Serial.print(F("*** modem.begin failed with error "));
-        Serial.print(err);
+        Serial.print(agtErr);
         Serial.println(F(" ***"));
         loop_step = zzz;
       }
@@ -717,52 +724,52 @@ void loop()
         // and convert floats to strings
 
         // Convert the floating point values into strings
-        char lat_str[15]; // latitude string
-        ftoa(latitude,lat_str,6,15);
-        char lon_str[15]; // longitude string
-        ftoa(longitude,lon_str,6,15);
-        char alt_str[15]; // altitude string
-        ftoa(altitude,alt_str,2,15);
-        char vbat_str[6]; // battery voltage string
-        ftoa(vbat,vbat_str,2,6);
-        char speed_str[8]; // speed string
-        ftoa(speed,speed_str,2,8);
-        char pressure_str[8]; // pressure string
-        ftoa(pascals,pressure_str,0,8);
-        char temperature_str[10]; // temperature string
-        ftoa(tempC,temperature_str,1,10);
+        char latStr[15]; // latitude string
+        ftoa(agtLatitude,latStr,6,15);
+        char lonStr[15]; // longitude string
+        ftoa(agtLongitude,lonStr,6,15);
+        char altStr[15]; // altitude string
+        ftoa(agtAltitude,altStr,2,15);
+        char vbatStr[6]; // battery voltage string
+        ftoa(agtVbat,vbatStr,2,6);
+        char speedStr[8]; // speed string
+        ftoa(agtSpeed,speedStr,2,8);
+        char pressureStr[8]; // pressure string
+        ftoa(agtPascals,pressureStr,0,8);
+        char temperatureStr[10]; // temperature string
+        ftoa(agtTempC,temperatureStr,1,10);
 
         // Convert the date and time into strings
         char gnssDay[3];
         char gnssMonth[3];
-        if (day < 10)
-          sprintf(gnssDay, "0%d", day);
+        if (agtDay < 10)
+          sprintf(gnssDay, "0%d", agtDay);
         else
-          sprintf(gnssDay, "%d", day);
-        if (month < 10)
-          sprintf(gnssMonth, "0%d", month);
+          sprintf(gnssDay, "%d", agtDay);
+        if (agtMonth < 10)
+          sprintf(gnssMonth, "0%d", agtMonth);
         else
-          sprintf(gnssMonth, "%d", month);
+          sprintf(gnssMonth, "%d", agtMonth);
       
         char gnssHour[3];
         char gnssMin[3];
         char gnssSec[3];
-        if (hour < 10)
-          sprintf(gnssHour, "0%d", hour);
+        if (agtHour < 10)
+          sprintf(gnssHour, "0%d", agtHour);
         else
-          sprintf(gnssHour, "%d", hour);
-        if (minute < 10)
-          sprintf(gnssMin, "0%d", minute);
+          sprintf(gnssHour, "%d", agtHour);
+        if (agtMinute < 10)
+          sprintf(gnssMin, "0%d", agtMinute);
         else
-          sprintf(gnssMin, "%d", minute);
-        if (second < 10)
-          sprintf(gnssSec, "0%d", second);
+          sprintf(gnssMin, "%d", agtMinute);
+        if (agtSecond < 10)
+          sprintf(gnssSec, "0%d", agtSecond);
         else
-          sprintf(gnssSec, "%d", second);
+          sprintf(gnssSec, "%d", agtSecond);
         
         // Assemble the message using sprintf
-        sprintf(outBuffer, "%d%s%s%s%s%s,%s,%s,%s,%s,%d,%d,%d,%s,%s,%s,%d", year, gnssMonth, gnssDay, gnssHour, gnssMin, gnssSec, 
-          lat_str, lon_str, alt_str, speed_str, course, pdop, satellites, pressure_str, temperature_str, vbat_str, iterationCounter);
+        sprintf(outBuffer, "%d%s%s%s%s%s,%s,%s,%s,%s,%d,%d,%d,%s,%s,%s,%d", agtYear, gnssMonth, gnssDay, gnssHour, gnssMin, gnssSec, 
+          latStr, lonStr, altStr, speedStr, agtCourse, agtPDOP, agtSatellites, pressureStr, temperatureStr, vbatStr, iterationCounter);
 
         // Send the message
         Serial.print(F("Transmitting message '"));
@@ -770,16 +777,16 @@ void loop()
         Serial.println(F("'"));
 
 #ifndef noTX
-        err = modem.sendSBDText(outBuffer); // This could take many seconds to complete and will call ISBDCallback() periodically
+        agtErr = modem.sendSBDText(outBuffer); // This could take many seconds to complete and will call ISBDCallback() periodically
 #else
-        err = ISBD_SUCCESS;
+        agtErr = ISBD_SUCCESS;
 #endif
 
         // Check if the message sent OK
-        if (err != ISBD_SUCCESS)
+        if (agtErr != ISBD_SUCCESS)
         {
           Serial.print(F("Transmission failed with error code "));
-          Serial.println(err);
+          Serial.println(agtErr);
 #ifndef noLED
           // Turn on LED to indicate failed send
           digitalWrite(LED, HIGH);
@@ -802,21 +809,21 @@ void loop()
 
         // Clear the Mobile Originated message buffer
         Serial.println(F("Clearing the MO buffer."));
-        err = modem.clearBuffers(ISBD_CLEAR_MO); // Clear MO buffer
-        if (err != ISBD_SUCCESS)
+        agtErr = modem.clearBuffers(ISBD_CLEAR_MO); // Clear MO buffer
+        if (agtErr != ISBD_SUCCESS)
         {
           Serial.print(F("*** modem.clearBuffers failed with error "));
-          Serial.print(err);
+          Serial.print(agtErr);
           Serial.println(F(" ***"));
         }
 
         // Power down the modem
         Serial.println(F("Putting the 9603N to sleep."));
-        err = modem.sleep();
-        if (err != ISBD_SUCCESS)
+        agtErr = modem.sleep();
+        if (agtErr != ISBD_SUCCESS)
         {
           Serial.print(F("*** modem.sleep failed with error "));
-          Serial.print(err);
+          Serial.print(agtErr);
           Serial.println(F(" ***"));
         }
 
@@ -861,6 +868,7 @@ void loop()
         // Close and detach the serial console
         Serial.println(F("Going into deep sleep until next INTERVAL..."));
         Serial.flush(); //Finish any prints
+        
         Serial.end(); // Close the serial console
   
         // Code taken (mostly) from Apollo3 Example6_Low_Power_Alarm
@@ -870,20 +878,20 @@ void loop()
       
         // Force the peripherals off
         am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_IOM0); // SPI
-        //am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_IOM1); // agtWire
+        //am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_IOM1); // agtWire I2C
         am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_IOM2);
         am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_IOM3);
-        am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_IOM4);
+        am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_IOM4); // Qwiic I2C
         am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_IOM5);
         am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_ADC);
         //am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_UART0); // Leave UART0 on to avoid printing erroneous characters to Serial
         am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_UART1); // Serial1
       
-        // Disable all unused pins - including UART0 TX (48) and RX (49)
-        const int pinsToDisable[] = {0,1,2,11,12,14,15,16,20,21,29,31,32,36,37,38,42,43,44,45,48,49,-1};
+        // Disable all unused pins - including: SCL (8), SDA (9), UART0 TX (48) and RX (49) and UART1 TX (24) and RX (25)
+        const int pinsToDisable[] = {0,1,2,8,9,11,12,14,15,16,20,21,24,25,29,31,32,33,36,37,38,42,43,44,45,48,49,-1};
         for (int x = 0; pinsToDisable[x] >= 0; x++)
         {
-          am_hal_gpio_pinconfig(pinsToDisable[x], g_AM_HAL_GPIO_DISABLE);
+          pin_config(PinName(pinsToDisable[x]), g_AM_HAL_GPIO_DISABLE);
         }
       
         //Power down CACHE, flashand SRAM
@@ -895,13 +903,13 @@ void loop()
         am_hal_stimer_config(AM_HAL_STIMER_XTAL_32KHZ);
       
         // This while loop keeps the processor asleep until INTERVAL seconds have passed
-        while (!interval_alarm) // Wake up every INTERVAL seconds
+        while (!intervalAlarm) // Wake up every INTERVAL seconds
         {
           // Go to Deep Sleep.
           am_hal_sysctrl_sleep(AM_HAL_SYSCTRL_SLEEP_DEEP);
         }
-        interval_alarm = false; // Clear the alarm flag now
-    
+        intervalAlarm = false; // Clear the alarm flag now
+
         // Wake up!
         loop_step = wakeUp;
       }
@@ -920,21 +928,22 @@ void loop()
       // Power up SRAM, turn on entire Flash
       am_hal_pwrctrl_memory_deepsleep_powerdown(AM_HAL_PWRCTRL_MEM_MAX);
     
-      // Go back to using the main clock
-      am_hal_stimer_config(AM_HAL_STIMER_CFG_CLEAR | AM_HAL_STIMER_CFG_FREEZE);
-      am_hal_stimer_config(AM_HAL_STIMER_HFRC_3MHZ);
+      // Renable UART0 pins: TX (48) and RX (49)
+      pin_config(PinName(48), g_AM_BSP_GPIO_COM_UART_TX);
+      pin_config(PinName(49), g_AM_BSP_GPIO_COM_UART_RX);
     
-      // Renable UART0 pins
-      am_hal_gpio_pinconfig(48, g_AM_BSP_GPIO_COM_UART_TX);
-      am_hal_gpio_pinconfig(49, g_AM_BSP_GPIO_COM_UART_RX);
+      // Renable UART1 pins: TX (24) and RX (25)
+      am_hal_gpio_pincfg_t pinConfigTx = g_AM_BSP_GPIO_COM_UART_TX;
+      pinConfigTx.uFuncSel = AM_HAL_PIN_24_UART1TX;
+      pin_config(PinName(24), pinConfigTx);
+      am_hal_gpio_pincfg_t pinConfigRx = g_AM_BSP_GPIO_COM_UART_RX;
+      pinConfigRx.uFuncSel = AM_HAL_PIN_25_UART1RX;
+      pinConfigRx.ePullup = AM_HAL_GPIO_PIN_PULLUP_WEAK; // Put a weak pull-up on the Rx pin
+      pin_config(PinName(25), pinConfigRx);
     
-      // Renable power to UART0
-      am_hal_pwrctrl_periph_enable(AM_HAL_PWRCTRL_PERIPH_UART0);
-      
       // Enable ADC
       powerControlADC(true);
-      initializeADC();
-    
+
       // Do it all again!
       loop_step = loop_init;
 
