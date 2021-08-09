@@ -3,13 +3,13 @@
 An open source global satellite tracker utilising the [SparkFun Artemis module](https://www.sparkfun.com/products/15484),
 [Iridium 9603N satellite transceiver](https://www.iridium.com/products/iridium-9603/) and [u-blox ZOE-M8Q GNSS](https://www.u-blox.com/en/product/zoe-m8-series).
 
-![16469-Artemis_Global_Tracker-02.jpg](img/16469-Artemis_Global_Tracker-02.jpg)
+[![SparkX Artemis Global Tracker (SPX-16469)](img/16469-Artemis_Global_Tracker-02.jpg)](https://www.sparkfun.com/products/16469)
 
-[Artemis Global Tracker (SPX-16469)](https://www.sparkfun.com/products/16469)
+[*SparkX Artemis Global Tracker (SPX-16469)*](https://www.sparkfun.com/products/16469)
 
-![16469-Artemis_Global_Tracker-04.jpg](img/16469-Artemis_Global_Tracker-04.jpg)
+[![SparkX Artemis Global Tracker (SPX-16469)](img/16469-Artemis_Global_Tracker-04.jpg)](https://www.sparkfun.com/products/16469)
 
-[Artemis Global Tracker (SPX-16469)](https://www.sparkfun.com/products/16469)
+[*SparkX Artemis Global Tracker (SPX-16469)*](https://www.sparkfun.com/products/16469)
 
 ## Repository Contents
 
@@ -33,7 +33,7 @@ This product is _**open source**_!
 
 Please review the LICENSE.md file for license information.
 
-If you have any questions or concerns on licensing, please contact technical support on our [SparkFun forums](https://forum.sparkfun.com/viewforum.php?f=105).
+If you have any questions or concerns on licensing, please contact technical support on our [SparkFun forums](https://forum.sparkfun.com/viewforum.php?f=123).
 
 Distributed as-is; no warranty is given.
 
