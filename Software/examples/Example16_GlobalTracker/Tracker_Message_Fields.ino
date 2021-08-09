@@ -3,44 +3,27 @@
 
 #include "Tracker_Message_Fields.h" // Include the message field and storage definitions
 
-// debug functions taken from the SparkFun u-blox library:
-// https://github.com/sparkfun/SparkFun_Ublox_Arduino_Library
+// debug functions
 void enableDebugging(Stream &debugPort)
 {
   _debugSerial = &debugPort; //Grab which port the user wants us to use for debugging
 
   _printDebug = true; //Should we print the commands we send? Good for debugging
 }
-
 void disableDebugging(void)
 {
   _printDebug = false; //Turn off extra print statements
 }
+#define debugPrint( var ) { if (_printDebug == true) _debugSerial->print( var ); }
+#define debugPrintln( var ) { if (_printDebug == true) _debugSerial->println( var ); }
 
-void debugPrint(char *message)
-//Safely print messages
-{
-  if (_printDebug == true)
-  {
-    _debugSerial->print(message);
-  }
-}
-
-void debugPrintln(char *message)
-//Safely print messages
-{
-  if (_printDebug == true)
-  {
-    _debugSerial->println(message);
-  }
-}
 
 byte calculateEEPROMchecksumA() // Calculate the RFC 1145 Checksum A for the EEPROM data
 {
   uint32_t csuma = 0;
   for (uint16_t x = LOC_STX; x < (LOC_ETX + LEN_ETX); x += 1) // Calculate a sum of every byte from STX to ETX
   {
-    csuma = csuma + *(byte *)(AP3_FLASH_EEPROM_START + x);
+    csuma = csuma + EEPROM.read(x);
   }
   return ((byte)(csuma & 0x000000ff));
 }
@@ -51,7 +34,7 @@ byte calculateEEPROMchecksumB() // Calculate the RFC 1145 Checksum B for the EEP
   uint32_t csumb = 0;
   for (uint16_t x = LOC_STX; x < (LOC_ETX + LEN_ETX); x += 1) // Calculate a sum of sums for every byte from STX to ETX
   {
-    csuma = csuma + *(byte *)(AP3_FLASH_EEPROM_START + x);
+    csuma = csuma + EEPROM.read(x);
     csumb = csumb + csuma;
   }
   return ((byte)(csumb & 0x000000ff));
@@ -75,8 +58,14 @@ bool checkEEPROM(trackerSettings *myTrackerSettings)
   result = result && ((csuma == eeprom_csuma) && (csumb == eeprom_csumb)); // Check that the EEPROM checksums are valid
   result = result && ((stx == DEF_STX) && (etx == DEF_ETX)); // Check that EEPROM STX and ETX are actually STX and ETX (not zero!)
   debugPrint("checkEEPROM: ");
-  if (result) debugPrintln("valid");
-  else debugPrintln("invalid");
+  if (result == true)
+  {
+    debugPrintln("valid");
+  }
+  else
+  {
+    debugPrintln("invalid");
+  }
   return (result);
 }
 
@@ -332,7 +321,11 @@ void displayEEPROMcontents() // Display the EEPROM data nicely
         }
       }
     }
-    Serial.printf("%02X", *(byte *)(AP3_FLASH_EEPROM_START + x)); // Print the EEPROM byte
+    uint8_t tempByte = EEPROM.read(x);
+    if (tempByte < 16)
+      Serial.printf("0%X", tempByte); // Print the EEPROM byte
+    else
+      Serial.printf("%X", tempByte); // Print the EEPROM byte
     chars_printed += 1;
   }
 }
