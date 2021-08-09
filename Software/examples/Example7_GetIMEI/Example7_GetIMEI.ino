@@ -3,9 +3,13 @@
  Example: GetIMEI
 
  Written by Paul Clark (PaulZC)
- 7th June 2020
+ August 7th 2021
 
- ** Set the Board to "SparkFun Artemis Module" **
+ ** Updated for v2.1.0 of the Apollo3 core / Artemis board package **
+ ** (At the time of writing, v2.1.1 of the core conatins a feature which makes communication with the u-blox GNSS problematic. Be sure to use v2.1.0) **
+
+ ** Set the Board to "RedBoard Artemis ATP" **
+ ** (The Artemis Module does not have a Wire port defined, which prevents the IridiumSBD library from compiling) **
 
  This example powers up the Iridium 9603N and reads its IMEI.
  You do not need message credits or line rental to run this example.
@@ -53,14 +57,12 @@
 // Make sure you do not have gnssEN and iridiumPwrEN enabled at the same time!
 // If you do, bad things might happen to the AS179 RF switch!
 
-// Declares a Uart object called Serial using instance 1 of Apollo3 UART peripherals with RX on variant pin 25 and TX on pin 24
-// (note, in this variant the pins map directly to pad, so pin === pad when talking about the pure Artemis module)
-Uart iridiumSerial(1, 25, 24);
+// We use Serial1 to communicate with the Iridium modem. Serial1 on the ATP uses pin 24 for TX and 25 for RX. AGT uses the same pins.
 
 #include <IridiumSBD.h> //http://librarymanager/All#IridiumSBDI2C
 #define DIAGNOSTICS false // Change this to true to see IridiumSBD diagnostics
 // Declare the IridiumSBD object (including the sleep (ON/OFF) and Ring Indicator pins)
-IridiumSBD modem(iridiumSerial, iridiumSleep, iridiumRI);
+IridiumSBD modem(Serial1, iridiumSleep, iridiumRI);
 
 void gnssOFF(void) // Disable power for the GNSS
 {
@@ -130,7 +132,7 @@ void setup()
   delay(1000);
 
   // Start the serial port connected to the satellite modem
-  iridiumSerial.begin(19200);
+  Serial1.begin(19200);
 
   // Begin satellite modem operation
   Serial.println(F("Starting modem..."));

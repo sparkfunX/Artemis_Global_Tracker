@@ -32,13 +32,14 @@
 #define DEF_ETX       0x03
 
 // Define the struct for the tracker settings (stored in RAM and copied to or loaded from EEPROM)
+// myTrackerSettings.TXINT is accessed by the rtc ISR and so needs to be volatile
 typedef struct 
 {
-  byte STX;             // 0x02 - when written to EEPROM, helps indicate if EEPROM contains valid data
-  uint32_t SOURCE;       // The tracker's RockBLOCK serial number
-  uint32_t DEST;         // The destination RockBLOCK serial number for message forwarding
-  uint16_t TXINT;        // The message transmit interval in minutes
-  byte ETX;             // 0x03 - when written to EEPROM, helps indicate if EEPROM contains valid data
+  byte STX;                 // 0x02 - when written to EEPROM, helps indicate if EEPROM contains valid data
+  uint32_t SOURCE;          // The tracker's RockBLOCK serial number
+  uint32_t DEST;            // The destination RockBLOCK serial number for message forwarding
+  volatile uint16_t TXINT;  // The message transmit interval in minutes
+  byte ETX;                 // 0x03 - when written to EEPROM, helps indicate if EEPROM contains valid data
 } trackerSettings;
 
 #endif

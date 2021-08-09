@@ -90,7 +90,7 @@
 
 // Define the default value for each message field
 #define DEF_STX       0x02
-#define DEF_SWVER     0x10 // Software version 1.0
+#define DEF_SWVER     0x20 // Software version 2.0
 #define DEF_SOURCE    0
 #define DEF_BATTV     500 // 500 * 0.01V = 5V
 #define DEF_PRESS     0

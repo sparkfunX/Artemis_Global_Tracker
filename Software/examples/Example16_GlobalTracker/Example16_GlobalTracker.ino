@@ -2,11 +2,13 @@
   Artemis Global Tracker
   
   Written by Paul Clark (PaulZC)
-  December 15th, 2020
+  August 9th 2021
 
-  *** (MINOR) WORK IN PROGRESS! ***
-  * Still to do:
-  * Remove trailing zeros from the text message fields to save credits
+  ** Updated for v2.1.0 of the Apollo3 core / Artemis board package **
+  ** (At the time of writing, v2.1.1 of the core conatins a feature which makes communication with the u-blox GNSS problematic. Be sure to use v2.1.0) **
+
+  ** Set the Board to "RedBoard Artemis ATP" **
+  ** (The Artemis Module does not have a Wire port defined, which prevents the GNSS library from compiling) **
 
   This example builds on the BetterTracker example. Many settings are stored in EEPROM (Flash) and can be configured
   via the USB port (Serial Monitor) or via an Iridium binary message sent from Rock7 Operations.
@@ -34,8 +36,6 @@
   Likewise, if you want to enable geofence alarm messages, you will also need to increase WAKEINT.
   Set it to the same interval as ALARMINT.
   
-  ** Set the Board to "SparkFun Artemis Module" **
-  
   You will need to install this version of the Iridium SBD library
   before this example will run successfully:
   https://github.com/sparkfun/SparkFun_IridiumSBD_I2C_Arduino_Library
@@ -43,19 +43,21 @@
   
   You will also need to install the Qwiic_PHT_MS8607_Library:
   https://github.com/sparkfun/SparkFun_PHT_MS8607_Arduino_Library
-  (Available through the Arduino Library Manager: search for MS8607)
+  (Available through the Arduino Library Manager: search for SparkFun MS8607)
   
-  You will also need to install the SparkFun Ublox Library:
-  https://github.com/sparkfun/SparkFun_Ublox_Arduino_Library
-  (Available through the Arduino Library Manager: search for Ublox)
+  You will need to install the SparkFun u-blox library before this example will run successfully:
+  https://github.com/sparkfun/SparkFun_u-blox_GNSS_Arduino_Library
+  (Available through the Arduino Library Manager: search for SparkFun u-blox GNSS)
   
   Basic information on how to install an Arduino library is available here:
   https://learn.sparkfun.com/tutorials/installing-an-arduino-library
   
-  PaulZC and SparkFun labored with love to create this code. Feel like supporting open source hardware?
+  SparkFun labored with love to create this code. Feel like supporting open source hardware?
   Buy a board from SparkFun!
 
   Version history:
+  August 7th 2021
+    Updated for v2.1 of the Apollo3 core
   December 15th, 2020:
     Adding the deep sleep code from OpenLog Artemis.
     Keep RAM powered up during sleep to prevent corruption above 64K.
@@ -83,8 +85,8 @@
 // If you do, bad things might happen to the AS179 RF switch!
 
 // Include the u-blox library first so the message fields know about the dynModel enum
-#include <SparkFun_Ublox_Arduino_Library.h> //http://librarymanager/All#SparkFun_Ublox_GPS
-SFE_UBLOX_GPS myGPS;
+#include "SparkFun_u-blox_GNSS_Arduino_Library.h" //http://librarymanager/All#SparkFun_u-blox_GNSS
+SFE_UBLOX_GNSS myGPS;
 
 #include "Tracker_Message_Fields.h" // Include the message field and storage definitions
 trackerSettings myTrackerSettings; // Create storage for the tracker settings in RAM
@@ -92,24 +94,24 @@ trackerSettings myTrackerSettings; // Create storage for the tracker settings in
 //#define noTX // Uncomment this line to disable the Iridium SBD transmit if you want to test the code without using message credits
 //#define skipGNSS // Uncomment this line to skip getting a GNSS fix (only valid if noTX is defined too)
 
+#include "RTC.h" //Include RTC library included with the Arduino_Apollo3 core
+
 #include <EEPROM.h> // Needed for EEPROM storage on the Artemis
 
-// Declares a Uart object using instance 1 of Apollo3 UART peripherals with RX on variant pin 25 and TX on pin 24
-// (note, in this variant the pins map directly to pad, so pin === pad when talking about the pure Artemis module)
-Uart iridiumSerial(1, 25, 24);
+// We use Serial1 to communicate with the Iridium modem. Serial1 on the ATP uses pin 24 for TX and 25 for RX. AGT uses the same pins.
 
 #include <IridiumSBD.h> //http://librarymanager/All#IridiumSBDI2C
-#define DIAGNOSTICS true //false // Change this to true to see IridiumSBD diagnostics
+#define DIAGNOSTICS false // Change this to true to see IridiumSBD diagnostics
 // Declare the IridiumSBD object (including the sleep (ON/OFF) and Ring Indicator pins)
-IridiumSBD modem(iridiumSerial, iridiumSleep, iridiumRI);
+IridiumSBD modem(Serial1, iridiumSleep, iridiumRI);
 
 #include <Wire.h> // Needed for I2C
+const byte PIN_AGTWIRE_SCL = 8;
+const byte PIN_AGTWIRE_SDA = 9;
+TwoWire agtWire(PIN_AGTWIRE_SDA, PIN_AGTWIRE_SCL); //Create an I2C port using pads 8 (SCL) and 9 (SDA)
 
-#include <SparkFun_PHT_MS8607_Arduino_Library.h> //http://librarymanager/All#MS8607
+#include <SparkFun_PHT_MS8607_Arduino_Library.h> //http://librarymanager/All#SparkFun_MS8607
 MS8607 barometricSensor; //Create an instance of the MS8607 object
-
-// Include dtostrf
-#include <avr/dtostrf.h>
 
 // iterationCounter is incremented each time a transmission is attempted.
 // It helps keep track of whether messages are being sent successfully.
@@ -173,20 +175,22 @@ Stream *_debugSerial; //The stream to send debug messages to (if enabled)
 
 // Loop Steps - these are used by the switch/case in the main loop
 // This structure makes it easy to go from any of the steps directly to zzz when (e.g.) the batteries are low
-#define loop_init     0 // Send the welcome message, check the battery voltage
-#define read_pressure 1 // Read the pressure and temperature from the MS8607
-#define start_GPS     2 // Enable the ZOE-M8Q, check the battery voltage
-#define read_GPS      3 // Wait for up to GNSS_timeout minutes for a valid 3D fix, check the battery voltage
-#define start_LTC3225 4 // Enable the LTC3225 super capacitor charger and wait for up to CHG_timeout minutes for PGOOD to go high
-#define wait_LTC3225  5 // Wait TOPUP_timeout seconds to make sure the capacitors are fully charged
-#define start_9603    6 // Power on the 9603N, send the message, check the battery voltage
-#define sleep_9603    7 // Put the 9603N to sleep
-#define zzz           8 // Turn everything off and put the processor into deep sleep
-#define wake          9 // Wake from deep sleep, restore the processor clock speed
-#define wait_for_ring 10 // Keep the 9603N powered up and wait for a ring indication
-#define configure     11 // Configure the tracker settings via USB Serial
-volatile int loop_step = loop_init; // Make sure loop_step is set to loop_init
-volatile int last_loop_step = loop_init; // Go back to this loop_step after doing a configure
+typedef enum {
+  loop_init = 0, // Send the welcome message, check the battery voltage
+  read_pressure, // Read the pressure and temperature from the MS8607
+  start_GPS,     // Enable the ZOE-M8Q, check the battery voltage
+  read_GPS,      // Wait for up to GNSS_timeout minutes for a valid 3D fix, check the battery voltage
+  start_LTC3225, // Enable the LTC3225 super capacitor charger and wait for up to CHG_timeout minutes for PGOOD to go high
+  wait_LTC3225,  // Wait TOPUP_timeout seconds to make sure the capacitors are fully charged
+  start_9603,    // Power on the 9603N, send the message, check the battery voltage
+  sleep_9603,    // Put the 9603N to sleep
+  zzz,           // Turn everything off and put the processor into deep sleep
+  wakeUp,        // Wake from deep sleep, restore the processor clock speed
+  wait_for_ring, // Keep the 9603N powered up and wait for a ring indication
+  configureMe    // Configure the tracker settings via USB Serial
+} loop_steps;
+volatile loop_steps loop_step = loop_init; // Make sure loop_step is set to loop_init
+volatile loop_steps last_loop_step = loop_init; // Go back to this loop_step after doing a configure
 
 // RTC alarm Interrupt Service Routine
 // Clear the interrupt flag and increment the seconds_since_last_...
@@ -195,8 +199,8 @@ volatile int last_loop_step = loop_init; // Go back to this loop_step after doin
 //  and always use volatile variables if the main loop needs to access them too.)
 extern "C" void am_rtc_isr(void)
 {
-  // Clear the RTC alarm interrupt.
-  am_hal_rtc_int_clear(AM_HAL_RTC_INT_ALM);
+  // Clear the RTC alarm interrupt
+  rtc.clearInterrupt();
 
   // Increment seconds_since_last_...
   seconds_since_last_wake = seconds_since_last_wake + 1;
@@ -221,13 +225,21 @@ void geofenceISR(void)
 
 void gnssON(void) // Enable power for the GNSS
 {
-  digitalWrite(gnssEN, LOW); // Disable GNSS power (HIGH = disable; LOW = enable)
-  pinMode(gnssEN, OUTPUT); // Configure the pin which enables power for the ZOE-M8Q GNSS
+  am_hal_gpio_pincfg_t pinCfg = g_AM_HAL_GPIO_OUTPUT; // Begin by making the gnssEN pin an open-drain output
+  pinCfg.eGPOutcfg = AM_HAL_GPIO_PIN_OUTCFG_OPENDRAIN;
+  pin_config(PinName(gnssEN), pinCfg);
+  delay(1);
+  
+  digitalWrite(gnssEN, LOW); // Enable GNSS power (HIGH = disable; LOW = enable)
 }
 
 void gnssOFF(void) // Disable power for the GNSS
 {
-  pinMode(gnssEN, INPUT_PULLUP); // Configure the pin which enables power for the ZOE-M8Q GNSS
+  am_hal_gpio_pincfg_t pinCfg = g_AM_HAL_GPIO_OUTPUT; // Begin by making the gnssEN pin an open-drain output
+  pinCfg.eGPOutcfg = AM_HAL_GPIO_PIN_OUTCFG_OPENDRAIN;
+  pin_config(PinName(gnssEN), pinCfg);
+  delay(1);
+  
   digitalWrite(gnssEN, HIGH); // Disable GNSS power (HIGH = disable; LOW = enable)
 }
 
@@ -241,6 +253,7 @@ void setup()
   pinMode(geofencePin, INPUT); // Configure the geofence pin as an input
 
   attachInterrupt(digitalPinToInterrupt(geofencePin), geofenceISR, FALLING); // Call geofenceISR whenever geofencePin goes low
+  geofence_alarm = false; // In Apollo3 v2.1.0 attachInterrupt causes the interrupt to trigger. So, let's clear the flag.
 
   pinMode(iridiumPwrEN, OUTPUT); // Configure the Iridium Power Pin (connected to the ADM4210 ON pin)
   digitalWrite(iridiumPwrEN, LOW); // Disable Iridium Power (HIGH = enable; LOW = disable)
@@ -272,6 +285,8 @@ void setup()
 
   disableDebugging(); // Make sure the serial debug messages are disabled until the Serial port is open!
 
+  EEPROM.init(); // Initialize the EEPROM
+
   // Initialise the tracker settings in RAM - before we enable the RTC
   initTrackerSettings(&myTrackerSettings);
 
@@ -292,7 +307,18 @@ void setup()
   wake_int = myTrackerSettings.WAKEINT.the_data; // Copy WAKEINT into wake_int (volatile for the ISR)
 
   // Set up the rtc for 1 second interrupts now that TXINT has been initialized
-  setupRTC();
+  /*
+    0: Alarm interrupt disabled
+    1: Alarm match every year   (hundredths, seconds, minutes, hour, day, month)
+    2: Alarm match every month  (hundredths, seconds, minutes, hours, day)
+    3: Alarm match every week   (hundredths, seconds, minutes, hours, weekday)
+    4: Alarm match every day    (hundredths, seconds, minute, hours)
+    5: Alarm match every hour   (hundredths, seconds, minutes)
+    6: Alarm match every minute (hundredths, seconds)
+    7: Alarm match every second (hundredths)
+  */
+  rtc.setAlarmMode(7); // Set the RTC alarm mode
+  rtc.attachInterrupt(); // Attach RTC alarm interrupt  
 
 }
 
@@ -304,7 +330,7 @@ void loop()
     // ************************************************************************************************
     // Initialise things
     case loop_init:
-    
+    {
       // Start the console serial port and send the welcome message
       Serial.begin(115200);
       Serial.println();
@@ -345,28 +371,30 @@ void loop()
       modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE); // Change power profile to "low current"
 
       loop_step = read_pressure; // Move on, check the PHT readings (in case we need to send an alarm message)
-    
+    }
     break; // End of case loop_init
 
     // ************************************************************************************************
     // Read the pressure and temperature from the MS8607
     case read_pressure:
-    
+    {
       Serial.println(F("Getting the PHT readings..."));
 
-      Wire1.begin(); // Set up the I2C pins
+      agtWire.begin(); // Set up the I2C pins
+      agtWire.setClock(100000); // Use 100kHz for best performance
+      setAGTWirePullups(1); // MS8607 needs pull-ups
       
       bool barometricSensorOK;
-      barometricSensorOK = barometricSensor.begin(Wire1); // Begin the PHT sensor
+      barometricSensorOK = barometricSensor.begin(agtWire); // Begin the PHT sensor
       if (barometricSensorOK == false)
       {
         // Send a warning message if we were unable to connect to the MS8607:
-        Serial.println(F("*! Could not detect the MS8607 sensor. Trying again... !*"));
-        barometricSensorOK = barometricSensor.begin(Wire1); // Re-begin the PHT sensor
+        Serial.println(F("*** Could not detect the MS8607 sensor. Trying again... ***"));
+        barometricSensorOK = barometricSensor.begin(agtWire); // Re-begin the PHT sensor
         if (barometricSensorOK == false)
         {
           // Send a warning message if we were unable to connect to the MS8607:
-          Serial.println(F("***!!! MS8607 sensor not detected at default I2C address !!!***"));
+          Serial.println(F("*** MS8607 sensor not detected at default I2C address ***"));
         }
       }
 
@@ -520,13 +548,13 @@ void loop()
       {
         loop_step = zzz; // Go to sleep
       }
-    
+    }
     break; // End of case read_pressure
 
     // ************************************************************************************************
     // Power up the GNSS (ZOE-M8Q)
     case start_GPS:
-    
+    {
       Serial.println(F("Powering up the GNSS..."));
       gnssON(); // Enable power for the GNSS
 
@@ -541,22 +569,22 @@ void loop()
       get_vbat(); // Get the battery (bus) voltage
       if (battVlow() == true) {
         // If voltage is low, turn off the GNSS and go to sleep
-        Serial.print(F("***!!! LOW VOLTAGE (start_GPS) "));
+        Serial.print(F("*** LOW VOLTAGE (start_GPS) "));
         Serial.print((((float)myTrackerSettings.BATTV.the_data)/100.0),2);
-        Serial.println(F("V !!!***"));
+        Serial.println(F("V ***"));
         gnssOFF(); // Disable power for the GNSS
         loop_step = zzz; // Go to sleep
       }
       
       else // If the battery voltage is OK
       {
-      
-        if (myGPS.begin(Wire1) == false) //Connect to the Ublox module using Wire port
+        setAGTWirePullups(0); // Remove the pull-ups from the I2C pins (internal to the Artemis) for best performance
+        if (myGPS.begin(agtWire) == false) //Connect to the Ublox module using Wire port
         {
           // If we were unable to connect to the ZOE-M8Q:
           
           // Send a warning message
-          Serial.println(F("***!!! Ublox GPS not detected at default I2C address !!!***"));
+          Serial.println(F("*** Ublox GPS not detected at default I2C address ***"));
           
           // Set the lat, long etc. to default values
           myTrackerSettings.YEAR.the_data = DEF_YEAR;
@@ -598,7 +626,7 @@ void loop()
           {
             if (myGPS.setDynamicModel(myTrackerSettings.DYNMODEL) == false)
             {
-              Serial.println(F("***!!! Warning: setDynamicModel may have failed !!!***"));
+              Serial.println(F("*** Warning: setDynamicModel may have failed ***"));
             }
             else
             {
@@ -609,7 +637,7 @@ void loop()
               }
               else
               {
-                Serial.println(F("***!!! Warning: saving the NAVCONF to BBR may have failed !!!***"));
+                Serial.println(F("*** Warning: saving the NAVCONF to BBR may have failed ***"));
               }
             }
           }
@@ -669,7 +697,7 @@ void loop()
             }
             else
             {
-              Serial.println(F("***!!! Warning: saving the NAVCONF to BBR may have failed !!!***"));
+              Serial.println(F("*** Warning: saving the NAVCONF to BBR may have failed ***"));
             }
           }
           loop_step = read_GPS; // Move on, read the GNSS fix
@@ -681,15 +709,15 @@ void loop()
       {
         gnssOFF(); // Disable power for the GNSS
         last_loop_step = start_GPS; // Let's start the GPS again when leaving configure
-        loop_step = configure; // Start the configure
+        loop_step = configureMe; // Start the configure
       }
-    
+    }
     break; // End of case start_GPS
 
     // ************************************************************************************************
     // Read a fix from the ZOE-M8Q
     case read_GPS:
-    
+    {
       Serial.println(F("Waiting for a 3D GNSS fix..."));
 
       myTrackerSettings.FIX = 0; // Clear the fix type
@@ -730,9 +758,9 @@ void loop()
 
       // If voltage is low then go straight to sleep
       if (battVlow() == true) {
-        Serial.print(F("***!!! LOW VOLTAGE (read_GPS) "));
+        Serial.print(F("*** LOW VOLTAGE (read_GPS) "));
         Serial.print((((float)myTrackerSettings.BATTV.the_data)/100.0),2);
-        Serial.println(F("V !!!***"));
+        Serial.println(F("V ***"));
         
         loop_step = zzz;
       }
@@ -806,15 +834,15 @@ void loop()
       if (Serial.available() > 0) // Has any serial data arrived?
       {
         last_loop_step = start_GPS; // Let's read the GPS again when leaving configure
-        loop_step = configure; // Start the configure
+        loop_step = configureMe; // Start the configure
       }
-    
+    }
     break; // End of case read_GPS
 
     // ************************************************************************************************
     // Start the LTC3225 supercapacitor charger
     case start_LTC3225:
-    
+    {
       // Enable the supercapacitor charger
       Serial.println(F("Enabling the supercapacitor charger..."));
       digitalWrite(superCapChgEN, HIGH); // Enable the super capacitor charger
@@ -864,9 +892,9 @@ void loop()
 
       // If voltage is low then go straight to sleep
       if (battVlow() == true) {
-        Serial.print(F("***!!! LOW VOLTAGE (start_LTC3225) "));
+        Serial.print(F("*** LOW VOLTAGE (start_LTC3225) "));
         Serial.print((((float)myTrackerSettings.BATTV.the_data)/100.0),2);
-        Serial.println(F("V !!!***"));
+        Serial.println(F("V ***"));
         
         loop_step = zzz;
       }
@@ -882,7 +910,7 @@ void loop()
       else
       {
         // The super capacitors did not charge so power down and go to sleep
-        Serial.println(F("***!!! Supercapacitors failed to charge !!!***"));
+        Serial.println(F("*** Supercapacitors failed to charge ***"));
 
         loop_step = zzz;
       }
@@ -892,15 +920,15 @@ void loop()
       {
         digitalWrite(superCapChgEN, LOW); // Disable the super capacitor charger
         last_loop_step = start_LTC3225; // Let's charge the capacitors again when leaving configure
-        loop_step = configure; // Start the configure
+        loop_step = configureMe; // Start the configure
       }
-    
+    }
     break; // End of case start_LTC3225
 
     // ************************************************************************************************
     // Give the super capacitors some extra time to charge
     case wait_LTC3225:
-    
+    {
       Serial.println(F("Giving the supercapacitors extra time to charge..."));
  
       // Wait for TOPUP_timeout seconds, keep checking PGOOD and the battery voltage
@@ -934,9 +962,9 @@ void loop()
 
       // If voltage is low then go straight to sleep
       if (battVlow() == true) {
-        Serial.print(F("***!!! LOW VOLTAGE (wait_LTC3225) "));
+        Serial.print(F("*** LOW VOLTAGE (wait_LTC3225) "));
         Serial.print((((float)myTrackerSettings.BATTV.the_data)/100.0),2);
-        Serial.println(F("V !!!***"));
+        Serial.println(F("V ***"));
         
         loop_step = zzz;
       }
@@ -952,7 +980,7 @@ void loop()
       else
       {
         // The super capacitors did not charge so power down and go to sleep
-        Serial.println(F("***!!! Supercapacitors failed to hold charge in wait_LTC3225 !!!***"));
+        Serial.println(F("*** Supercapacitors failed to hold charge in wait_LTC3225 ***"));
 
         loop_step = zzz;
       }
@@ -963,15 +991,15 @@ void loop()
       {
         digitalWrite(superCapChgEN, LOW); // Disable the super capacitor charger
         last_loop_step = start_LTC3225; // Let's charge the capacitors again when leaving configure
-        loop_step = configure; // Start the configure
+        loop_step = configureMe; // Start the configure
       }
-    
+    }
     break; // End of case wait_LTC3225
       
     // ************************************************************************************************
     // Enable the 9603N and attempt to send a message
     case start_9603:
-    
+    {
       // Enable power for the 9603N
       Serial.println(F("Enabling 9603N power..."));
       digitalWrite(iridiumPwrEN, HIGH); // Enable Iridium Power
@@ -981,7 +1009,7 @@ void loop()
       Serial.println(F("Beginning to talk to the 9603..."));
 
       // Start the serial port connected to the satellite modem
-      iridiumSerial.begin(19200);
+      Serial1.begin(19200);
       delay(1000);
 
       // Relax timing constraints waiting for the supercap to recharge.
@@ -995,9 +1023,9 @@ void loop()
       if (err != ISBD_SUCCESS)
       {
         // If the modem failed to start, disable it and go to sleep
-        Serial.print(F("***!!! modem.begin failed with error "));
+        Serial.print(F("*** modem.begin failed with error "));
         Serial.print(err);
-        Serial.println(F(" !!!***"));
+        Serial.println(F(" ***"));
         loop_step = zzz;
       }
 
@@ -1026,7 +1054,23 @@ void loop()
           // Check if we need to include a RockBLOCK gateway header (DEST)
           if ((myTrackerSettings.FLAGS1 & FLAGS1_DEST) == FLAGS1_DEST) // if bit 6 of FLAGS1 is set we need to add RB DEST first
           {
-            sprintf(outBuffer, "RB%07d,", myTrackerSettings.DEST.the_data); // Add RB DEST , to outBuffer
+            char destStr[8];
+            if (myTrackerSettings.DEST.the_data < 10)
+              sprintf(destStr, "000000%d", myTrackerSettings.DEST.the_data);
+            else if (myTrackerSettings.DEST.the_data < 100)
+              sprintf(destStr, "00000%d", myTrackerSettings.DEST.the_data);
+            else if (myTrackerSettings.DEST.the_data < 1000)
+              sprintf(destStr, "0000%d", myTrackerSettings.DEST.the_data);
+            else if (myTrackerSettings.DEST.the_data < 10000)
+              sprintf(destStr, "000%d", myTrackerSettings.DEST.the_data);
+            else if (myTrackerSettings.DEST.the_data < 100000)
+              sprintf(destStr, "00%d", myTrackerSettings.DEST.the_data);
+            else if (myTrackerSettings.DEST.the_data < 1000000)
+              sprintf(destStr, "0%d", myTrackerSettings.DEST.the_data);
+            else
+              sprintf(destStr, "%d", myTrackerSettings.DEST.the_data);
+        
+            sprintf(outBuffer, "RB%s,", destStr); // Add RB DEST , to outBuffer
             outBufferPtr += 10; // increment the pointer by 10
           }
 
@@ -1046,7 +1090,7 @@ void loop()
           if ((myTrackerSettings.MOFIELDS[0].the_data & MOFIELDS0_BATTV) == MOFIELDS0_BATTV) // If the bit is set
           {
             char temp_str[6]; // temporary string
-            dtostrf((((float)myTrackerSettings.BATTV.the_data) / 100.0),4,2,temp_str); // Convert to V
+            ftoa((((float)myTrackerSettings.BATTV.the_data) / 100.0),temp_str,2,6); // Convert to V
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++; // increment the pointer
           }
@@ -1058,14 +1102,14 @@ void loop()
           if ((myTrackerSettings.MOFIELDS[0].the_data & MOFIELDS0_TEMP) == MOFIELDS0_TEMP) // If the bit is set
           {
             char temp_str[8]; // temporary string
-            dtostrf((((float)myTrackerSettings.TEMP.the_data) / 100.0),4,2,temp_str); // Convert to C
+            ftoa((((float)myTrackerSettings.TEMP.the_data) / 100.0),temp_str,2,8); // Convert to C
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++; // increment the pointer
           }
           if ((myTrackerSettings.MOFIELDS[0].the_data & MOFIELDS0_HUMID) == MOFIELDS0_HUMID) // If the bit is set
           {
             char temp_str[8]; // temporary string
-            dtostrf((((float)myTrackerSettings.HUMID.the_data) / 100.0),4,2,temp_str); // Convert to %RH
+            ftoa((((float)myTrackerSettings.HUMID.the_data) / 100.0),temp_str,2,8); // Convert to %RH
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++; // increment the pointer
           }
@@ -1076,81 +1120,116 @@ void loop()
           }
           if ((myTrackerSettings.MOFIELDS[0].the_data & MOFIELDS0_MONTH) == MOFIELDS0_MONTH) // If the bit is set
           {
-            sprintf(outBuffer+outBufferPtr, "%02d,", myTrackerSettings.MONTH); // Add the field to outBuffer
+            if (myTrackerSettings.MONTH < 10) 
+              sprintf(outBuffer+outBufferPtr, "0%d,", myTrackerSettings.MONTH); // Add the field to outBuffer
+            else
+              sprintf(outBuffer+outBufferPtr, "%d,", myTrackerSettings.MONTH); // Add the field to outBuffer
             outBufferPtr += 3;
           }
           if ((myTrackerSettings.MOFIELDS[0].the_data & MOFIELDS0_DAY) == MOFIELDS0_DAY) // If the bit is set
           {
-            sprintf(outBuffer+outBufferPtr, "%02d,", myTrackerSettings.DAY); // Add the field to outBuffer
+            if (myTrackerSettings.DAY < 10)
+              sprintf(outBuffer+outBufferPtr, "0%d,", myTrackerSettings.DAY); // Add the field to outBuffer
+            else
+              sprintf(outBuffer+outBufferPtr, "%d,", myTrackerSettings.DAY); // Add the field to outBuffer
             outBufferPtr += 3;
           }
           if ((myTrackerSettings.MOFIELDS[0].the_data & MOFIELDS0_HOUR) == MOFIELDS0_HOUR) // If the bit is set
           {
-            sprintf(outBuffer+outBufferPtr, "%02d,", myTrackerSettings.HOUR); // Add the field to outBuffer
+            if (myTrackerSettings.HOUR < 10)
+              sprintf(outBuffer+outBufferPtr, "0%d,", myTrackerSettings.HOUR); // Add the field to outBuffer
+            else
+              sprintf(outBuffer+outBufferPtr, "%d,", myTrackerSettings.HOUR); // Add the field to outBuffer
             outBufferPtr += 3;
           }
           if ((myTrackerSettings.MOFIELDS[0].the_data & MOFIELDS0_MIN) == MOFIELDS0_MIN) // If the bit is set
           {
-            sprintf(outBuffer+outBufferPtr, "%02d,", myTrackerSettings.MIN); // Add the field to outBuffer
+            if (myTrackerSettings.MIN < 10)
+              sprintf(outBuffer+outBufferPtr, "0%d,", myTrackerSettings.MIN); // Add the field to outBuffer
+            else
+              sprintf(outBuffer+outBufferPtr, "%d,", myTrackerSettings.MIN); // Add the field to outBuffer
             outBufferPtr += 3;
           }
           if ((myTrackerSettings.MOFIELDS[0].the_data & MOFIELDS0_SEC) == MOFIELDS0_SEC) // If the bit is set
           {
-            sprintf(outBuffer+outBufferPtr, "%02d,", myTrackerSettings.SEC); // Add the field to outBuffer
+            if (myTrackerSettings.SEC < 10)
+              sprintf(outBuffer+outBufferPtr, "0%d,", myTrackerSettings.SEC); // Add the field to outBuffer
+            else
+              sprintf(outBuffer+outBufferPtr, "%d,", myTrackerSettings.SEC); // Add the field to outBuffer
             outBufferPtr += 3;
           }
           if ((myTrackerSettings.MOFIELDS[0].the_data & MOFIELDS0_MILLIS) == MOFIELDS0_MILLIS) // If the bit is set
           {
-            sprintf(outBuffer+outBufferPtr, "%03d,", myTrackerSettings.MILLIS.the_data); // Add the field to outBuffer
+            if (myTrackerSettings.MILLIS.the_data < 10)
+              sprintf(outBuffer+outBufferPtr, "00%d,", myTrackerSettings.MILLIS.the_data); // Add the field to outBuffer
+            else if (myTrackerSettings.MILLIS.the_data < 100)
+              sprintf(outBuffer+outBufferPtr, "0%d,", myTrackerSettings.MILLIS.the_data); // Add the field to outBuffer
+            else
+              sprintf(outBuffer+outBufferPtr, "%d,", myTrackerSettings.MILLIS.the_data); // Add the field to outBuffer
             outBufferPtr += 4;
           }
           if ((myTrackerSettings.MOFIELDS[0].the_data & MOFIELDS0_DATETIME) == MOFIELDS0_DATETIME) // If the bit is set
           {
             sprintf(outBuffer+outBufferPtr, "%4d", myTrackerSettings.YEAR.the_data); // Add the field to outBuffer
             outBufferPtr += 4; // increment the pointer
-            sprintf(outBuffer+outBufferPtr, "%02d", myTrackerSettings.MONTH);
+            if (myTrackerSettings.MONTH < 10) 
+              sprintf(outBuffer+outBufferPtr, "0%d", myTrackerSettings.MONTH); // Add the field to outBuffer
+            else
+              sprintf(outBuffer+outBufferPtr, "%d", myTrackerSettings.MONTH); // Add the field to outBuffer
             outBufferPtr += 2;
-            sprintf(outBuffer+outBufferPtr, "%02d", myTrackerSettings.DAY);
+            if (myTrackerSettings.DAY < 10)
+              sprintf(outBuffer+outBufferPtr, "0%d", myTrackerSettings.DAY); // Add the field to outBuffer
+            else
+              sprintf(outBuffer+outBufferPtr, "%d", myTrackerSettings.DAY); // Add the field to outBuffer
             outBufferPtr += 2;
-            sprintf(outBuffer+outBufferPtr, "%02d", myTrackerSettings.HOUR);
+            if (myTrackerSettings.HOUR < 10)
+              sprintf(outBuffer+outBufferPtr, "0%d", myTrackerSettings.HOUR); // Add the field to outBuffer
+            else
+              sprintf(outBuffer+outBufferPtr, "%d", myTrackerSettings.HOUR); // Add the field to outBuffer
             outBufferPtr += 2;
-            sprintf(outBuffer+outBufferPtr, "%02d", myTrackerSettings.MIN);
+            if (myTrackerSettings.MIN < 10)
+              sprintf(outBuffer+outBufferPtr, "0%d", myTrackerSettings.MIN); // Add the field to outBuffer
+            else
+              sprintf(outBuffer+outBufferPtr, "%d", myTrackerSettings.MIN); // Add the field to outBuffer
             outBufferPtr += 2;
-            sprintf(outBuffer+outBufferPtr, "%02d,", myTrackerSettings.SEC);
+            if (myTrackerSettings.SEC < 10)
+              sprintf(outBuffer+outBufferPtr, "0%d,", myTrackerSettings.SEC); // Add the field to outBuffer
+            else
+              sprintf(outBuffer+outBufferPtr, "%d,", myTrackerSettings.SEC); // Add the field to outBuffer
             outBufferPtr += 3;
           }
           if ((myTrackerSettings.MOFIELDS[0].the_data & MOFIELDS0_LAT) == MOFIELDS0_LAT) // If the bit is set
           {
             char temp_str[16]; // temporary string
-            dtostrf((((float)myTrackerSettings.LAT.the_data) / 10000000.0),9,7,temp_str); // Convert to degrees
+            ftoa((((float)myTrackerSettings.LAT.the_data) / 10000000.0),temp_str,7,16); // Convert to degrees
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++; // increment the pointer
           }
           if ((myTrackerSettings.MOFIELDS[0].the_data & MOFIELDS0_LON) == MOFIELDS0_LON) // If the bit is set
           {
             char temp_str[16]; // temporary string
-            dtostrf((((float)myTrackerSettings.LON.the_data) / 10000000.0),9,7,temp_str); // Convert to degrees
+            ftoa((((float)myTrackerSettings.LON.the_data) / 10000000.0),temp_str,7,16); // Convert to degrees
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++; // increment the pointer
           }
           if ((myTrackerSettings.MOFIELDS[0].the_data & MOFIELDS0_ALT) == MOFIELDS0_ALT) // If the bit is set
           {
             char temp_str[16]; // temporary string
-            dtostrf((((float)myTrackerSettings.ALT.the_data) / 1000.0),5,3,temp_str); // Convert to m
+            ftoa((((float)myTrackerSettings.ALT.the_data) / 1000.0),temp_str,3,16); // Convert to m
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++; // increment the pointer
           }
           if ((myTrackerSettings.MOFIELDS[0].the_data & MOFIELDS0_SPEED) == MOFIELDS0_SPEED) // If the bit is set
           {
             char temp_str[10]; // temporary string
-            dtostrf((((float)myTrackerSettings.SPEED.the_data) / 1000.0),5,3,temp_str); // Convert to m/s
+            ftoa((((float)myTrackerSettings.SPEED.the_data) / 1000.0),temp_str,3,10); // Convert to m/s
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++; // increment the pointer
           }
           if ((myTrackerSettings.MOFIELDS[0].the_data & MOFIELDS0_HEAD) == MOFIELDS0_HEAD) // If the bit is set
           {
             char temp_str[8]; // temporary string
-            dtostrf((((float)myTrackerSettings.HEAD.the_data) / 10000000.0),3,1,temp_str); // Convert to degrees
+            ftoa((((float)myTrackerSettings.HEAD.the_data) / 10000000.0),temp_str,1,8); // Convert to degrees
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++; // increment the pointer
           }
@@ -1162,7 +1241,7 @@ void loop()
           if ((myTrackerSettings.MOFIELDS[0].the_data & MOFIELDS0_PDOP) == MOFIELDS0_PDOP) // If the bit is set
           {
             char temp_str[10]; // temporary string
-            dtostrf((((float)myTrackerSettings.PDOP.the_data) / 100.0),4,2,temp_str); // Convert to m
+            ftoa((((float)myTrackerSettings.PDOP.the_data) / 100.0),temp_str,2,10); // Convert to m
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++; // increment the pointer
           }
@@ -1173,11 +1252,20 @@ void loop()
           }
           if ((myTrackerSettings.MOFIELDS[0].the_data & MOFIELDS0_GEOFSTAT) == MOFIELDS0_GEOFSTAT) // If the bit is set
           {
-            sprintf(outBuffer+outBufferPtr, "%02X", myTrackerSettings.GEOFSTAT[0]); // Add the field to outBuffer
+            if (myTrackerSettings.GEOFSTAT[0] < 16)
+              sprintf(outBuffer+outBufferPtr, "0%X", myTrackerSettings.GEOFSTAT[0]); // Add the field to outBuffer
+            else
+              sprintf(outBuffer+outBufferPtr, "%X", myTrackerSettings.GEOFSTAT[0]); // Add the field to outBuffer
             outBufferPtr += 2; // increment the pointer
-            sprintf(outBuffer+outBufferPtr, "%02X", myTrackerSettings.GEOFSTAT[1]); // Add the field to outBuffer
+            if (myTrackerSettings.GEOFSTAT[1] < 16)
+              sprintf(outBuffer+outBufferPtr, "0%X", myTrackerSettings.GEOFSTAT[1]); // Add the field to outBuffer
+            else
+              sprintf(outBuffer+outBufferPtr, "%X", myTrackerSettings.GEOFSTAT[1]); // Add the field to outBuffer
             outBufferPtr += 2; // increment the pointer
-            sprintf(outBuffer+outBufferPtr, "%02X,", myTrackerSettings.GEOFSTAT[2]); // Add the field to outBuffer
+            if (myTrackerSettings.GEOFSTAT[2] < 16)
+              sprintf(outBuffer+outBufferPtr, "0%X,", myTrackerSettings.GEOFSTAT[2]); // Add the field to outBuffer
+            else
+              sprintf(outBuffer+outBufferPtr, "%X,", myTrackerSettings.GEOFSTAT[2]); // Add the field to outBuffer
             outBufferPtr += 3; // increment the pointer
           }
 
@@ -1217,53 +1305,95 @@ void loop()
           if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS1_USERVAL7) == MOFIELDS1_USERVAL7) // If the bit is set
           {
             char temp_str[20]; // temporary string
-            dtostrf((USER_VAL_7()),5,3,temp_str);
+            ftoa((USER_VAL_7()),temp_str,3,20);
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++; // increment the pointer
           }
           if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS1_USERVAL8) == MOFIELDS1_USERVAL8) // If the bit is set
           {
             char temp_str[20]; // temporary string
-            dtostrf((USER_VAL_8()),5,3,temp_str);
+            ftoa((USER_VAL_8()),temp_str,3,20);
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++; // increment the pointer
           }
           
           if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS1_MOFIELDS) == MOFIELDS1_MOFIELDS) // If the bit is set
           {
-            sprintf(outBuffer+outBufferPtr, "%02X", myTrackerSettings.MOFIELDS[0].the_bytes[0]); // Add the field to outBuffer (little endian!)
+            if (myTrackerSettings.MOFIELDS[0].the_bytes[0] < 16)
+              sprintf(outBuffer+outBufferPtr, "0%X", myTrackerSettings.MOFIELDS[0].the_bytes[0]); // Add the field to outBuffer (little endian!)
+            else
+              sprintf(outBuffer+outBufferPtr, "%X", myTrackerSettings.MOFIELDS[0].the_bytes[0]); // Add the field to outBuffer (little endian!)
             outBufferPtr += 2; // increment the pointer
-            sprintf(outBuffer+outBufferPtr, "%02X", myTrackerSettings.MOFIELDS[0].the_bytes[1]);
+            if (myTrackerSettings.MOFIELDS[0].the_bytes[1] < 16)
+              sprintf(outBuffer+outBufferPtr, "0%X", myTrackerSettings.MOFIELDS[0].the_bytes[1]); // Add the field to outBuffer (little endian!)
+            else
+              sprintf(outBuffer+outBufferPtr, "%X", myTrackerSettings.MOFIELDS[0].the_bytes[1]); // Add the field to outBuffer (little endian!)
             outBufferPtr += 2; // increment the pointer
-            sprintf(outBuffer+outBufferPtr, "%02X", myTrackerSettings.MOFIELDS[0].the_bytes[2]);
+            if (myTrackerSettings.MOFIELDS[0].the_bytes[2] < 16)
+              sprintf(outBuffer+outBufferPtr, "0%X", myTrackerSettings.MOFIELDS[0].the_bytes[2]); // Add the field to outBuffer (little endian!)
+            else
+              sprintf(outBuffer+outBufferPtr, "%X", myTrackerSettings.MOFIELDS[0].the_bytes[2]); // Add the field to outBuffer (little endian!)
             outBufferPtr += 2; // increment the pointer
-            sprintf(outBuffer+outBufferPtr, "%02X", myTrackerSettings.MOFIELDS[0].the_bytes[3]);
+            if (myTrackerSettings.MOFIELDS[0].the_bytes[3] < 16)
+              sprintf(outBuffer+outBufferPtr, "0%X", myTrackerSettings.MOFIELDS[0].the_bytes[3]); // Add the field to outBuffer (little endian!)
+            else
+              sprintf(outBuffer+outBufferPtr, "%X", myTrackerSettings.MOFIELDS[0].the_bytes[3]); // Add the field to outBuffer (little endian!)
             outBufferPtr += 2; // increment the pointer
-            sprintf(outBuffer+outBufferPtr, "%02X", myTrackerSettings.MOFIELDS[1].the_bytes[0]); // Add the field to outBuffer (little endian!)
+            if (myTrackerSettings.MOFIELDS[1].the_bytes[0] < 16)
+              sprintf(outBuffer+outBufferPtr, "0%X", myTrackerSettings.MOFIELDS[1].the_bytes[0]); // Add the field to outBuffer (little endian!)
+            else
+              sprintf(outBuffer+outBufferPtr, "%X", myTrackerSettings.MOFIELDS[1].the_bytes[0]); // Add the field to outBuffer (little endian!)
             outBufferPtr += 2; // increment the pointer
-            sprintf(outBuffer+outBufferPtr, "%02X", myTrackerSettings.MOFIELDS[1].the_bytes[1]);
+            if (myTrackerSettings.MOFIELDS[1].the_bytes[1] < 16)
+              sprintf(outBuffer+outBufferPtr, "0%X", myTrackerSettings.MOFIELDS[1].the_bytes[1]); // Add the field to outBuffer (little endian!)
+            else
+              sprintf(outBuffer+outBufferPtr, "%X", myTrackerSettings.MOFIELDS[1].the_bytes[1]); // Add the field to outBuffer (little endian!)
             outBufferPtr += 2; // increment the pointer
-            sprintf(outBuffer+outBufferPtr, "%02X", myTrackerSettings.MOFIELDS[1].the_bytes[2]);
+            if (myTrackerSettings.MOFIELDS[1].the_bytes[2] < 16)
+              sprintf(outBuffer+outBufferPtr, "0%X", myTrackerSettings.MOFIELDS[1].the_bytes[2]); // Add the field to outBuffer (little endian!)
+            else
+              sprintf(outBuffer+outBufferPtr, "%X", myTrackerSettings.MOFIELDS[1].the_bytes[2]); // Add the field to outBuffer (little endian!)
             outBufferPtr += 2; // increment the pointer
-            sprintf(outBuffer+outBufferPtr, "%02X", myTrackerSettings.MOFIELDS[1].the_bytes[3]);
+            if (myTrackerSettings.MOFIELDS[1].the_bytes[3] < 16)
+              sprintf(outBuffer+outBufferPtr, "0%X", myTrackerSettings.MOFIELDS[1].the_bytes[3]); // Add the field to outBuffer (little endian!)
+            else
+              sprintf(outBuffer+outBufferPtr, "%X", myTrackerSettings.MOFIELDS[1].the_bytes[3]); // Add the field to outBuffer (little endian!)
             outBufferPtr += 2; // increment the pointer
-            sprintf(outBuffer+outBufferPtr, "%02X", myTrackerSettings.MOFIELDS[2].the_bytes[0]); // Add the field to outBuffer (little endian!)
+            if (myTrackerSettings.MOFIELDS[2].the_bytes[0] < 16)
+              sprintf(outBuffer+outBufferPtr, "0%X", myTrackerSettings.MOFIELDS[2].the_bytes[0]); // Add the field to outBuffer (little endian!)
+            else
+              sprintf(outBuffer+outBufferPtr, "%X", myTrackerSettings.MOFIELDS[2].the_bytes[0]); // Add the field to outBuffer (little endian!)
             outBufferPtr += 2; // increment the pointer
-            sprintf(outBuffer+outBufferPtr, "%02X", myTrackerSettings.MOFIELDS[2].the_bytes[1]);
+            if (myTrackerSettings.MOFIELDS[2].the_bytes[1] < 16)
+              sprintf(outBuffer+outBufferPtr, "0%X", myTrackerSettings.MOFIELDS[2].the_bytes[1]); // Add the field to outBuffer (little endian!)
+            else
+              sprintf(outBuffer+outBufferPtr, "%X", myTrackerSettings.MOFIELDS[2].the_bytes[1]); // Add the field to outBuffer (little endian!)
             outBufferPtr += 2; // increment the pointer
-            sprintf(outBuffer+outBufferPtr, "%02X", myTrackerSettings.MOFIELDS[2].the_bytes[2]);
+            if (myTrackerSettings.MOFIELDS[2].the_bytes[2] < 16)
+              sprintf(outBuffer+outBufferPtr, "0%X", myTrackerSettings.MOFIELDS[2].the_bytes[2]); // Add the field to outBuffer (little endian!)
+            else
+              sprintf(outBuffer+outBufferPtr, "%X", myTrackerSettings.MOFIELDS[2].the_bytes[2]); // Add the field to outBuffer (little endian!)
             outBufferPtr += 2; // increment the pointer
-            sprintf(outBuffer+outBufferPtr, "%02X,", myTrackerSettings.MOFIELDS[2].the_bytes[3]);
+            if (myTrackerSettings.MOFIELDS[2].the_bytes[3] < 16)
+              sprintf(outBuffer+outBufferPtr, "0%X,", myTrackerSettings.MOFIELDS[2].the_bytes[3]); // Add the field to outBuffer (little endian!)
+            else
+              sprintf(outBuffer+outBufferPtr, "%X,", myTrackerSettings.MOFIELDS[2].the_bytes[3]); // Add the field to outBuffer (little endian!)
             outBufferPtr += 3; // increment the pointer
           }
           if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS1_FLAGS1) == MOFIELDS1_FLAGS1) // If the bit is set
           {
-            sprintf(outBuffer+outBufferPtr, "%02X,", myTrackerSettings.FLAGS1); // Add the field to outBuffer
+            if (myTrackerSettings.FLAGS1 < 16)
+              sprintf(outBuffer+outBufferPtr, "0%X,", myTrackerSettings.FLAGS1); // Add the field to outBuffer
+            else
+              sprintf(outBuffer+outBufferPtr, "%X,", myTrackerSettings.FLAGS1); // Add the field to outBuffer
             outBufferPtr += 3; // increment the pointer
           }
           if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS1_FLAGS2) == MOFIELDS1_FLAGS2) // If the bit is set
           {
-            sprintf(outBuffer+outBufferPtr, "%02X,", myTrackerSettings.FLAGS2); // Add the field to outBuffer
+            if (myTrackerSettings.FLAGS2)
+              sprintf(outBuffer+outBufferPtr, "0%X,", myTrackerSettings.FLAGS2); // Add the field to outBuffer
+            else
+              sprintf(outBuffer+outBufferPtr, "%X,", myTrackerSettings.FLAGS2); // Add the field to outBuffer
             outBufferPtr += 3; // increment the pointer
           }
           if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS1_DEST) == MOFIELDS1_DEST) // If the bit is set
@@ -1284,28 +1414,28 @@ void loop()
           if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS1_HITEMP) == MOFIELDS1_HITEMP) // If the bit is set
           {
             char temp_str[10]; // temporary string
-            dtostrf((((float)myTrackerSettings.HITEMP.the_data) / 100.0),4,2,temp_str); // Convert to C
+            ftoa((((float)myTrackerSettings.HITEMP.the_data) / 100.0),temp_str,2,10); // Convert to C
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++; // increment the pointer
           }
           if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS1_LOTEMP) == MOFIELDS1_LOTEMP) // If the bit is set
           {
             char temp_str[10]; // temporary string
-            dtostrf((((float)myTrackerSettings.LOTEMP.the_data) / 100.0),4,2,temp_str); // Convert to C
+            ftoa((((float)myTrackerSettings.LOTEMP.the_data) / 100.0),temp_str,2,10); // Convert to C
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++; // increment the pointer
           }
           if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS1_HIHUMID) == MOFIELDS1_HIHUMID) // If the bit is set
           {
             char temp_str[10]; // temporary string
-            dtostrf((((float)myTrackerSettings.HIHUMID.the_data) / 100.0),4,2,temp_str); // Convert to %RH
+            ftoa((((float)myTrackerSettings.HIHUMID.the_data) / 100.0),temp_str,2,10); // Convert to %RH
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++; // increment the pointer
           }
           if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS1_LOHUMID) == MOFIELDS1_LOHUMID) // If the bit is set
           {
             char temp_str[10]; // temporary string
-            dtostrf((((float)myTrackerSettings.LOHUMID.the_data) / 100.0),4,2,temp_str); // Convert to %RH
+            ftoa((((float)myTrackerSettings.LOHUMID.the_data) / 100.0),temp_str,2,10); // Convert to %RH
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++; // increment the pointer
           }
@@ -1322,7 +1452,7 @@ void loop()
           if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS1_GEOF1LAT) == MOFIELDS1_GEOF1LAT) // If the bit is set
           {
             char temp_str[16]; // temporary string
-            dtostrf((((float)myTrackerSettings.GEOF1LAT.the_data) / 10000000.0),9,7,temp_str); // Convert to degrees
+            ftoa((((float)myTrackerSettings.GEOF1LAT.the_data) / 10000000.0),temp_str,7,16); // Convert to degrees
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             if (outBufferPtr < (MOLIM-12)) {while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++;} // increment the pointer if there is room
             else {outBuffer[outBufferPtr] = 0x00;} // if there is not enough room, ignore this message (set the first character to NULL)
@@ -1330,7 +1460,7 @@ void loop()
           if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS1_GEOF1LON) == MOFIELDS1_GEOF1LON) // If the bit is set
           {
             char temp_str[16]; // temporary string
-            dtostrf((((float)myTrackerSettings.GEOF1LON.the_data) / 10000000.0),9,7,temp_str); // Convert to degrees
+            ftoa((((float)myTrackerSettings.GEOF1LON.the_data) / 10000000.0),temp_str,7,16); // Convert to degrees
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             if (outBufferPtr < (MOLIM-13)) {while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++;} // increment the pointer if there is room
             else {outBuffer[outBufferPtr] = 0x00;} // if there is not enough room, ignore this message (set the first character to NULL)
@@ -1338,7 +1468,7 @@ void loop()
           if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS1_GEOF1RAD) == MOFIELDS1_GEOF1RAD) // If the bit is set
           {
             char temp_str[16]; // temporary string
-            dtostrf((((float)myTrackerSettings.GEOF1RAD.the_data) / 100.0),4,2,temp_str); // Convert to m
+            ftoa((((float)myTrackerSettings.GEOF1RAD.the_data) / 100.0),temp_str,2,16); // Convert to m
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             if (outBufferPtr < (MOLIM-10)) {while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++;} // increment the pointer if there is room
             else {outBuffer[outBufferPtr] = 0x00;} // if there is not enough room, ignore this message (set the first character to NULL)
@@ -1346,7 +1476,7 @@ void loop()
           if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS1_GEOF2LAT) == MOFIELDS1_GEOF2LAT) // If the bit is set
           {
             char temp_str[16]; // temporary string
-            dtostrf((((float)myTrackerSettings.GEOF2LAT.the_data) / 10000000.0),9,7,temp_str); // Convert to degrees
+            ftoa((((float)myTrackerSettings.GEOF2LAT.the_data) / 10000000.0),temp_str,7,16); // Convert to degrees
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             if (outBufferPtr < (MOLIM-12)) {while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++;} // increment the pointer if there is room
             else {outBuffer[outBufferPtr] = 0x00;} // if there is not enough room, ignore this message (set the first character to NULL)
@@ -1354,7 +1484,7 @@ void loop()
           if ((myTrackerSettings.MOFIELDS[1].the_data & MOFIELDS1_GEOF2LON) == MOFIELDS1_GEOF2LON) // If the bit is set
           {
             char temp_str[16]; // temporary string
-            dtostrf((((float)myTrackerSettings.GEOF2LON.the_data) / 10000000.0),9,7,temp_str); // Convert to degrees
+            ftoa((((float)myTrackerSettings.GEOF2LON.the_data) / 10000000.0),temp_str,7,16); // Convert to degrees
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             if (outBufferPtr < (MOLIM-13)) {while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++;} // increment the pointer if there is room
             else {outBuffer[outBufferPtr] = 0x00;} // if there is not enough room, ignore this message (set the first character to NULL)
@@ -1365,7 +1495,7 @@ void loop()
           if ((myTrackerSettings.MOFIELDS[2].the_data & MOFIELDS2_GEOF2RAD) == MOFIELDS2_GEOF2RAD) // If the bit is set
           {
             char temp_str[16]; // temporary string
-            dtostrf((((float)myTrackerSettings.GEOF2RAD.the_data) / 100.0),4,2,temp_str); // Convert to m
+            ftoa((((float)myTrackerSettings.GEOF2RAD.the_data) / 100.0),temp_str,2,16); // Convert to m
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             if (outBufferPtr < (MOLIM-10)) {while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++;} // increment the pointer if there is room
             else {outBuffer[outBufferPtr] = 0x00;} // if there is not enough room, ignore this message (set the first character to NULL)
@@ -1373,7 +1503,7 @@ void loop()
           if ((myTrackerSettings.MOFIELDS[2].the_data & MOFIELDS2_GEOF3LAT) == MOFIELDS2_GEOF3LAT) // If the bit is set
           {
             char temp_str[16]; // temporary string
-            dtostrf((((float)myTrackerSettings.GEOF3LAT.the_data) / 10000000.0),9,7,temp_str); // Convert to degrees
+            ftoa((((float)myTrackerSettings.GEOF3LAT.the_data) / 10000000.0),temp_str,7,16); // Convert to degrees
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             if (outBufferPtr < (MOLIM-12)) {while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++;} // increment the pointer if there is room
             else {outBuffer[outBufferPtr] = 0x00;} // if there is not enough room, ignore this message (set the first character to NULL)
@@ -1381,7 +1511,7 @@ void loop()
           if ((myTrackerSettings.MOFIELDS[2].the_data & MOFIELDS2_GEOF3LON) == MOFIELDS2_GEOF3LON) // If the bit is set
           {
             char temp_str[16]; // temporary string
-            dtostrf((((float)myTrackerSettings.GEOF3LON.the_data) / 10000000.0),9,7,temp_str); // Convert to degrees
+            ftoa((((float)myTrackerSettings.GEOF3LON.the_data) / 10000000.0),temp_str,7,16); // Convert to degrees
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             if (outBufferPtr < (MOLIM-13)) {while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++;} // increment the pointer if there is room
             else {outBuffer[outBufferPtr] = 0x00;} // if there is not enough room, ignore this message (set the first character to NULL)
@@ -1389,7 +1519,7 @@ void loop()
           if ((myTrackerSettings.MOFIELDS[2].the_data & MOFIELDS2_GEOF3RAD) == MOFIELDS2_GEOF3RAD) // If the bit is set
           {
             char temp_str[16]; // temporary string
-            dtostrf((((float)myTrackerSettings.GEOF3RAD.the_data) / 100.0),4,2,temp_str); // Convert to m
+            ftoa((((float)myTrackerSettings.GEOF3RAD.the_data) / 100.0),temp_str,2,16); // Convert to m
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             if (outBufferPtr < (MOLIM-10)) {while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++;} // increment the pointer if there is room
             else {outBuffer[outBufferPtr] = 0x00;} // if there is not enough room, ignore this message (set the first character to NULL)
@@ -1397,7 +1527,7 @@ void loop()
           if ((myTrackerSettings.MOFIELDS[2].the_data & MOFIELDS2_GEOF4LAT) == MOFIELDS2_GEOF4LAT) // If the bit is set
           {
             char temp_str[16]; // temporary string
-            dtostrf((((float)myTrackerSettings.GEOF4LAT.the_data) / 10000000.0),9,7,temp_str); // Convert to degrees
+            ftoa((((float)myTrackerSettings.GEOF4LAT.the_data) / 10000000.0),temp_str,7,16); // Convert to degrees
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             if (outBufferPtr < (MOLIM-12)) {while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++;} // increment the pointer if there is room
             else {outBuffer[outBufferPtr] = 0x00;} // if there is not enough room, ignore this message (set the first character to NULL)
@@ -1405,7 +1535,7 @@ void loop()
           if ((myTrackerSettings.MOFIELDS[2].the_data & MOFIELDS2_GEOF4LON) == MOFIELDS2_GEOF4LON) // If the bit is set
           {
             char temp_str[16]; // temporary string
-            dtostrf((((float)myTrackerSettings.GEOF4LON.the_data) / 10000000.0),9,7,temp_str); // Convert to degrees
+            ftoa((((float)myTrackerSettings.GEOF4LON.the_data) / 10000000.0),temp_str,7,16); // Convert to degrees
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             if (outBufferPtr < (MOLIM-13)) {while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++;} // increment the pointer if there is room
             else {outBuffer[outBufferPtr] = 0x00;} // if there is not enough room, ignore this message (set the first character to NULL)
@@ -1413,7 +1543,7 @@ void loop()
           if ((myTrackerSettings.MOFIELDS[2].the_data & MOFIELDS2_GEOF4RAD) == MOFIELDS2_GEOF4RAD) // If the bit is set
           {
             char temp_str[16]; // temporary string
-            dtostrf((((float)myTrackerSettings.GEOF4RAD.the_data) / 100.0),4,2,temp_str); // Convert to m
+            ftoa((((float)myTrackerSettings.GEOF4RAD.the_data) / 100.0),temp_str,2,16); // Convert to m
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             if (outBufferPtr < (MOLIM-10)) {while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++;} // increment the pointer if there is room
             else {outBuffer[outBufferPtr] = 0x00;} // if there is not enough room, ignore this message (set the first character to NULL)
@@ -1439,7 +1569,7 @@ void loop()
           if ((myTrackerSettings.MOFIELDS[2].the_data & MOFIELDS2_LOWBATT) == MOFIELDS2_LOWBATT) // If the bit is set
           {
             char temp_str[8]; // temporary string
-            dtostrf((((float)myTrackerSettings.LOWBATT.the_data) / 100.0),4,2,temp_str); // Convert to V
+            ftoa((((float)myTrackerSettings.LOWBATT.the_data) / 100.0),temp_str,2,8); // Convert to V
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             if (outBufferPtr < (MOLIM-5)) {while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++;} // increment the pointer if there is room
             else {outBuffer[outBufferPtr] = 0x00;} // if there is not enough room, ignore this message (set the first character to NULL)
@@ -1949,7 +2079,10 @@ void loop()
           Serial.print(F("Binary message is '"));
           for (size_t i = 0; i < outBufferPtr; i++)
           {
-            Serial.printf("%02X", outBufferBinary[i]);
+            if (outBufferBinary[i] < 16)
+              Serial.printf("0%X", outBufferBinary[i]);
+            else
+              Serial.printf("%X", outBufferBinary[i]);
           }
           Serial.println(F("'"));
 
@@ -2042,9 +2175,9 @@ void loop()
           err = modem.clearBuffers(ISBD_CLEAR_MO); // Clear MO buffer
           if (err != ISBD_SUCCESS)
           {
-            Serial.print(F("***!!! modem.clearBuffers failed with error "));
+            Serial.print(F("*** modem.clearBuffers failed with error "));
             Serial.print(err);
-            Serial.println(F(" !!!***"));
+            Serial.println(F(" ***"));
           }
 
           // Update the waiting message count
@@ -2072,30 +2205,30 @@ void loop()
           loop_step = sleep_9603; // Put the modem to sleep
         }
       }
-    
+    }
     break; // End of case start_9603
       
     // ************************************************************************************************
     // Put the modem to sleep
     case sleep_9603: 
-    
+    {
       Serial.println(F("Putting the 9603N to sleep."));
       err = modem.sleep();
       if (err != ISBD_SUCCESS)
       {
-        Serial.print(F("***!!! modem.sleep failed with error "));
+        Serial.print(F("*** modem.sleep failed with error "));
         Serial.print(err);
-        Serial.println(F(" !!!***"));
+        Serial.println(F(" ***"));
       }
 
       loop_step = zzz; // Now go to sleep
-    
+    }
     break; // End of case sleep_9603
 
     // ************************************************************************************************
     // Go to sleep
     case zzz:
-    
+    {
       Serial.println(F("Getting ready to put the Apollo3 into deep sleep..."));
 
       // Disable 9603N power
@@ -2110,7 +2243,7 @@ void loop()
       digitalWrite(superCapChgEN, LOW); // Disable the super capacitor charger
 
       // Close the Iridium serial port
-      iridiumSerial.end();
+      Serial1.end();
 
       // Check if we should leave the GNSS powered up: if geofence alerts are enabled and 1 or more geofences is defined
       if (((myTrackerSettings.FLAGS2 & FLAGS2_GEOFENCE) == FLAGS2_GEOFENCE) && (((myTrackerSettings.GEOFNUM & 0xf0) >> 4) > 0))
@@ -2123,8 +2256,9 @@ void loop()
         Serial.println(F("Powering up the GNSS for geofence monitoring..."));
         gnssON(); // Enable power for the GNSS
         delay(2000); // Give the GNSS time to power up
-        
-        if (myGPS.begin(Wire1) == true) //Connect to the Ublox module using Wire port
+
+        setAGTWirePullups(0); // Remove the pull-ups from the I2C pins (internal to the Artemis) for best performance
+        if (myGPS.begin(agtWire) == true) //Connect to the Ublox module using Wire port
         {
           Serial.println(F("Waiting for a 3D GNSS fix..."));
     
@@ -2194,7 +2328,7 @@ void loop()
           }
           else
           {
-            Serial.println(F("***!!! GNSS Power Save Mode may have FAILED !!!***"));
+            Serial.println(F("*** GNSS Power Save Mode may have FAILED ***"));
           }
 
         }
@@ -2213,7 +2347,7 @@ void loop()
       }
 
       // Close the I2C port
-      Wire1.end();
+      //agtWire.end(); //DO NOT Power down I2C - causes badness with v2.1 of the core: https://github.com/sparkfun/Arduino_Apollo3/issues/412
 
       digitalWrite(busVoltageMonEN, LOW); // Disable the bus voltage monitor
 
@@ -2222,34 +2356,43 @@ void loop()
       disableDebugging(); // Disable the serial debug messages
 
       // Close and detach the serial console
-      Serial.println(F("Going into deep sleep until next WAKEINT..."));
+      Serial.print(F("Going into deep sleep until next WAKEINT ("));
+      Serial.print(wake_int);
+      Serial.println(F(" seconds)."));
       Serial.flush(); //Finish any prints
       Serial.end(); // Close the serial console
 
-      // Code taken (mostly) from the LowPower_WithWake example and the and OpenLog_Artemis PowerDownRTC example
+      // Code taken (mostly) from Apollo3 Example6_Low_Power_Alarm
       
-      // Turn off ADC
-      power_adc_disable();
-        
-      // Disabling the debugger GPIOs saves about 1.2 uA total:
-      am_hal_gpio_pinconfig(20 /* SWDCLK */, g_AM_HAL_GPIO_DISABLE);
-      am_hal_gpio_pinconfig(21 /* SWDIO */, g_AM_HAL_GPIO_DISABLE);
-  
-      // These two GPIOs are critical: the TX/RX connections between the Artemis module and the CH340S
-      // are prone to backfeeding each other. To stop this from happening, we must reconfigure those pins as GPIOs
-      // and then disable them completely:
-      am_hal_gpio_pinconfig(48 /* TXO-0 */, g_AM_HAL_GPIO_DISABLE);
-      am_hal_gpio_pinconfig(49 /* RXI-0 */, g_AM_HAL_GPIO_DISABLE);
-  
-      //Power down Flash, SRAM, cache
-      am_hal_pwrctrl_memory_deepsleep_powerdown(AM_HAL_PWRCTRL_MEM_CACHE);         //Turn off CACHE
-      am_hal_pwrctrl_memory_deepsleep_powerdown(AM_HAL_PWRCTRL_MEM_FLASH_512K);    //Turn off everything but lower 512k
-      //am_hal_pwrctrl_memory_deepsleep_powerdown(AM_HAL_PWRCTRL_MEM_SRAM_64K_DTCM); //Turn off everything but lower 64k? Be careful here. "Global variables use 56180 bytes of dynamic memory."
-
-      //Keep the 32kHz clock running for RTC
+      // Disable ADC
+      powerControlADC(false);
+    
+      // Force the peripherals off
+      am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_IOM0); // SPI
+      //am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_IOM1); // agtWire I2C
+      am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_IOM2);
+      am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_IOM3);
+      am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_IOM4); // Qwiic I2C
+      am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_IOM5);
+      am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_ADC);
+      //am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_UART0); // Leave UART0 on to avoid printing erroneous characters to Serial
+      am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_UART1); // Serial1
+    
+      // Disable all unused pins - including: SCL (8), SDA (9), UART0 TX (48) and RX (49) and UART1 TX (24) and RX (25)
+      const int pinsToDisable[] = {0,1,2,8,9,11,12,14,15,16,20,21,24,25,29,31,32,33,36,37,38,42,43,44,45,48,49,-1};
+      for (int x = 0; pinsToDisable[x] >= 0; x++)
+      {
+        pin_config(PinName(pinsToDisable[x]), g_AM_HAL_GPIO_DISABLE);
+      }
+    
+      //Power down CACHE, flashand SRAM
+      am_hal_pwrctrl_memory_deepsleep_powerdown(AM_HAL_PWRCTRL_MEM_ALL); // Power down all flash and cache
+      am_hal_pwrctrl_memory_deepsleep_retain(AM_HAL_PWRCTRL_MEM_SRAM_384K); // Retain all SRAM (0.6 uA)
+      
+      // Keep the 32kHz clock running for RTC
       am_hal_stimer_config(AM_HAL_STIMER_CFG_CLEAR | AM_HAL_STIMER_CFG_FREEZE);
       am_hal_stimer_config(AM_HAL_STIMER_XTAL_32KHZ);
-
+      
       geofence_alarm = false; // The geofence alarm pin will have been bouncing around so let's make sure the flag is clear
 
       // This while loop keeps the processor asleep until WAKEINT seconds have passed
@@ -2271,49 +2414,53 @@ void loop()
       }
 
       // Wake up!
-      loop_step = wake;
-    
+      loop_step = wakeUp;
+    }
     break; // End of case zzz
       
     // ************************************************************************************************
     // Wake from sleep
-    case wake:
-    
-      //Power up SRAM, turn on entire Flash
-      am_hal_pwrctrl_memory_deepsleep_powerdown(AM_HAL_PWRCTRL_MEM_MAX);
-    
-      //Go back to using the main clock
-      //am_hal_stimer_int_enable(AM_HAL_STIMER_INT_OVERFLOW);
-      //NVIC_EnableIRQ(STIMER_IRQn);
+    case wakeUp:
+    {
+      // Code taken (mostly) from Apollo3 Example6_Low_Power_Alarm
+      
+      // Go back to using the main clock
       am_hal_stimer_config(AM_HAL_STIMER_CFG_CLEAR | AM_HAL_STIMER_CFG_FREEZE);
       am_hal_stimer_config(AM_HAL_STIMER_HFRC_3MHZ);
     
-      // Restore the TX/RX connections between the Artemis module and the CH340S on the Blackboard
-      am_hal_gpio_pinconfig(48 /* TXO-0 */, g_AM_BSP_GPIO_COM_UART_TX);
-      am_hal_gpio_pinconfig(49 /* RXI-0 */, g_AM_BSP_GPIO_COM_UART_RX);
-
-      // Reenable the debugger GPIOs
-      am_hal_gpio_pinconfig(20 /* SWDCLK */, g_AM_BSP_GPIO_SWDCK);
-      am_hal_gpio_pinconfig(21 /* SWDIO */, g_AM_BSP_GPIO_SWDIO);
-  
-      //Turn on ADC
-      ap3_adc_setup();
-      ap3_set_pin_to_analog(busVoltagePin);
+      // Power up SRAM, turn on entire Flash
+      am_hal_pwrctrl_memory_deepsleep_powerdown(AM_HAL_PWRCTRL_MEM_MAX);
+    
+      // Renable UART0 pins: TX (48) and RX (49)
+      pin_config(PinName(48), g_AM_BSP_GPIO_COM_UART_TX);
+      pin_config(PinName(49), g_AM_BSP_GPIO_COM_UART_RX);
+    
+      // Renable UART1 pins: TX (24) and RX (25)
+      am_hal_gpio_pincfg_t pinConfigTx = g_AM_BSP_GPIO_COM_UART_TX;
+      pinConfigTx.uFuncSel = AM_HAL_PIN_24_UART1TX;
+      pin_config(PinName(24), pinConfigTx);
+      am_hal_gpio_pincfg_t pinConfigRx = g_AM_BSP_GPIO_COM_UART_RX;
+      pinConfigRx.uFuncSel = AM_HAL_PIN_25_UART1RX;
+      pinConfigRx.ePullup = AM_HAL_GPIO_PIN_PULLUP_WEAK; // Put a weak pull-up on the Rx pin
+      pin_config(PinName(25), pinConfigRx);
+    
+      // Enable ADC
+      powerControlADC(true);
 
       // Disable power for the GNSS (which could make the geofence interrupt pin bounce around causing false alerts)
       gnssOFF();
 
       // Do it all again!
       loop_step = loop_init;
-    
-    break; // End of case wake
+    }
+    break; // End of case wakeUp
 
     // ************************************************************************************************
     // Leave the 9603N powered up and monitor the ring indicator continuously
     // Exit and send a message (to download new MT messages) every WAKEINT seconds or earlier when we see a ring indication
     // The user should have set WAKEINT to the same interval as TXINT or ALARMINT
     case wait_for_ring:
-    
+    {
       Serial.println(F("Waiting for Ring Indication..."));
 
       while ((interval_alarm == false) && (modem.hasRingAsserted() == false)) // Exit every WAKEINT seconds or when we see a ring indication
@@ -2338,9 +2485,9 @@ void loop()
       err = modem.sleep();
       if (err != ISBD_SUCCESS)
       {
-        Serial.print(F("***!!! modem.sleep failed with error "));
+        Serial.print(F("*** modem.sleep failed with error "));
         Serial.print(err);
-        Serial.println(F(" !!!***"));
+        Serial.println(F(" ***"));
       }
       // Disable 9603N power
       Serial.println(F("Disabling 9603N power..."));
@@ -2356,13 +2503,13 @@ void loop()
 
       // Do it all again!
       loop_step = loop_init;
-    
+    }
     break; // End of case wait_for_ring
 
     // ************************************************************************************************
     // Configure the tracker settings via Serial (USB)
-    case configure:
-    
+    case configureMe:
+    {
       Serial.println(F("*** Tracker Configuration ***"));
       Serial.println(F("Waiting for data..."));
 
@@ -2402,8 +2549,44 @@ void loop()
       
       // Go back where we came from... (Or so help me!)
       loop_step = last_loop_step;
-    
-    break; // End of case configure
+    }
+    break; // End of case configureMe
 
   } // End of switch (loop_step)
 } // End of loop()
+
+void setAGTWirePullups(uint32_t i2cBusPullUps)
+{
+  //Change SCL and SDA pull-ups manually using pin_config
+  am_hal_gpio_pincfg_t sclPinCfg = g_AM_BSP_GPIO_IOM1_SCL;
+  am_hal_gpio_pincfg_t sdaPinCfg = g_AM_BSP_GPIO_IOM1_SDA;
+
+  if (i2cBusPullUps == 0)
+  {
+    sclPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_NONE; // No pull-ups
+    sdaPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_NONE;
+  }
+  else if (i2cBusPullUps == 1)
+  {
+    sclPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_1_5K; // Use 1K5 pull-ups
+    sdaPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_1_5K;
+  }
+  else if (i2cBusPullUps == 6)
+  {
+    sclPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_6K; // Use 6K pull-ups
+    sdaPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_6K;
+  }
+  else if (i2cBusPullUps == 12)
+  {
+    sclPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_12K; // Use 12K pull-ups
+    sdaPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_12K;
+  }
+  else
+  {
+    sclPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_24K; // Use 24K pull-ups
+    sdaPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_24K;
+  }
+
+  pin_config(PinName(PIN_AGTWIRE_SCL), sclPinCfg);
+  pin_config(PinName(PIN_AGTWIRE_SDA), sdaPinCfg);
+}

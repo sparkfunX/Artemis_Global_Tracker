@@ -15,9 +15,9 @@ bool ISBDCallback()
   // If voltage is low, stop Iridium send
   get_vbat(); // Read the battery (bus) voltage
   if ((myTrackerSettings.BATTV.the_data < (myTrackerSettings.LOWBATT.the_data - 200))) {
-    Serial.print("***!!! LOW VOLTAGE (ISBDCallback) ");
+    Serial.print("*** LOW VOLTAGE (ISBDCallback) ");
     Serial.print((((float)myTrackerSettings.BATTV.the_data)/100.0),2);
-    Serial.println("V !!!***");
+    Serial.println("V ***");
     return false; // Returning false causes IridiumSBD to terminate
   }
   else {     

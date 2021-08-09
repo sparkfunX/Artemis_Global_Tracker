@@ -9,7 +9,7 @@ byte calculateEEPROMchecksumA() // Calculate the RFC 1145 Checksum A for the EEP
   uint32_t csuma = 0;
   for (uint16_t x = LOC_STX; x < (LOC_ETX + LEN_ETX); x += 1) // Calculate a sum of every byte from STX to ETX
   {
-    csuma = csuma + *(byte *)(AP3_FLASH_EEPROM_START + x);
+    csuma = csuma + EEPROM.read(x);
   }
   return ((byte)(csuma & 0x000000ff));
 }
@@ -20,7 +20,7 @@ byte calculateEEPROMchecksumB() // Calculate the RFC 1145 Checksum B for the EEP
   uint32_t csumb = 0;
   for (uint16_t x = LOC_STX; x < (LOC_ETX + LEN_ETX); x += 1) // Calculate a sum of sums for every byte from STX to ETX
   {
-    csuma = csuma + *(byte *)(AP3_FLASH_EEPROM_START + x);
+    csuma = csuma + EEPROM.read(x);
     csumb = csumb + csuma;
   }
   return ((byte)(csumb & 0x000000ff));
@@ -56,31 +56,31 @@ void updateEEPROMchecksum() // Update the two EEPROM checksum bytes
 
 void initTrackerSettings(trackerSettings *myTrackerSettings) // Initialises the trackerSettings in RAM with the default values
 {
-  myTrackerSettings->STX = DEF_STX;
+  myTrackerSettings->STX =    DEF_STX;
   myTrackerSettings->SOURCE = DEF_SOURCE;
-  myTrackerSettings->DEST = DEF_DEST;
-  myTrackerSettings->TXINT = DEF_TXINT;
-  myTrackerSettings->ETX = DEF_ETX;
+  myTrackerSettings->DEST =   DEF_DEST;
+  myTrackerSettings->TXINT =  (volatile uint16_t)DEF_TXINT;
+  myTrackerSettings->ETX =    DEF_ETX;
 }
 
 void putTrackerSettings(trackerSettings *myTrackerSettings) // Write the trackerSettings from RAM into EEPROM
 {
   EEPROM.erase(); // Erase any old data first
-  EEPROM.put(LOC_STX, myTrackerSettings->STX);
-  EEPROM.put(LOC_SOURCE, myTrackerSettings->SOURCE);
-  EEPROM.put(LOC_DEST, myTrackerSettings->DEST);
-  EEPROM.put(LOC_TXINT, myTrackerSettings->TXINT);
-  EEPROM.put(LOC_ETX, myTrackerSettings->ETX);
+  EEPROM.put(LOC_STX,     myTrackerSettings->STX);
+  EEPROM.put(LOC_SOURCE,  myTrackerSettings->SOURCE);
+  EEPROM.put(LOC_DEST,    myTrackerSettings->DEST);
+  EEPROM.put(LOC_TXINT,   (uint16_t)myTrackerSettings->TXINT);
+  EEPROM.put(LOC_ETX,     myTrackerSettings->ETX);
   updateEEPROMchecksum();
 }
 
 void updateTrackerSettings(trackerSettings *myTrackerSettings) // Update any changed trackerSettings in EEPROM
 {
-  EEPROM.update(LOC_STX, myTrackerSettings->STX);
-  EEPROM.update(LOC_SOURCE, myTrackerSettings->SOURCE);
-  EEPROM.update(LOC_DEST, myTrackerSettings->DEST);
-  EEPROM.update(LOC_TXINT, myTrackerSettings->TXINT);
-  EEPROM.update(LOC_ETX, myTrackerSettings->ETX);
+  EEPROM.update(LOC_STX,     myTrackerSettings->STX);
+  EEPROM.update(LOC_SOURCE,  myTrackerSettings->SOURCE);
+  EEPROM.update(LOC_DEST,    myTrackerSettings->DEST);
+  EEPROM.update(LOC_TXINT,   (uint16_t)myTrackerSettings->TXINT);
+  EEPROM.update(LOC_ETX,     myTrackerSettings->ETX);
   updateEEPROMchecksum();
 }
 
@@ -89,6 +89,10 @@ void getTrackerSettings(trackerSettings *myTrackerSettings) // Read the trackerS
   EEPROM.get(LOC_STX, myTrackerSettings->STX);
   EEPROM.get(LOC_SOURCE, myTrackerSettings->SOURCE);
   EEPROM.get(LOC_DEST, myTrackerSettings->DEST);
-  EEPROM.get(LOC_TXINT, myTrackerSettings->TXINT);
+
+  uint16_t tempUint16;
+  EEPROM.get(LOC_TXINT, tempUint16);
+  myTrackerSettings->TXINT = (volatile uint16_t)tempUint16;
+  
   EEPROM.get(LOC_ETX, myTrackerSettings->ETX);
 }

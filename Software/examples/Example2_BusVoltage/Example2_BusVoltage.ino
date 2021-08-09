@@ -3,9 +3,10 @@
  Example: Bus Voltage
 
  Written by Paul Clark (PaulZC)
- 7th June 2020
+ August 7th 2021
 
- ** Set the Board to "SparkFun Artemis Module" **
+ ** Updated for v2.1.0 of the Apollo3 core / Artemis board package **
+ ** Set the Board to "RedBoard Artemis ATP" **
 
  Based on the Artemis analogRead example
  By: Nathan Seidle
@@ -63,6 +64,7 @@ void setup()
   pinMode(busVoltageMonEN, OUTPUT); // Make the Bus Voltage Monitor Enable an output
   digitalWrite(busVoltageMonEN, HIGH); // Set it high to enable the measurement
   //digitalWrite(busVoltageMonEN, LOW); // Set it low to disable the measurement (busV should be ~zero)
+  
   analogReadResolution(14); //Set resolution to 14 bit
 
   // Start the console serial port
@@ -104,7 +106,7 @@ void loop()
   Serial.print(F("V"));
 
   //TODO enable battload
-  int div3 = analogRead(ADC_INTERNAL_VCC_DIV3); //Read VCC across a 1/3 resistor divider
+  int div3 = analogReadVCCDiv3(); //Read VCC across a 1/3 resistor divider
   Serial.print(F("   VCC/3: "));
   Serial.print(div3);
 
@@ -113,13 +115,11 @@ void loop()
   Serial.print(vcc, 2);
   Serial.print(F("V"));
 
-  int internalTempVoltage = analogRead(ADC_INTERNAL_TEMP); //Read internal temp sensor. 3.8mV/C, +/-3C
-  double internalTemp = internalTempVoltage * vcc / 16384.0; //Convert internal temp reading to voltage
-  internalTemp /= 0.0038; //Convert voltage to degrees C
+  float internalTemp = getTempDegC(); // Read internal temperature sensor
   Serial.print(F("   internalTemp: "));
   Serial.print(internalTemp, 2);
 
-  int vss = analogRead(ADC_INTERNAL_VSS); //Read internal VSS (should be 0)
+  int vss = analogReadVSS(); //Read internal VSS (should be 0)
   Serial.print(F("   VSS: "));
   Serial.print(vss);
 
