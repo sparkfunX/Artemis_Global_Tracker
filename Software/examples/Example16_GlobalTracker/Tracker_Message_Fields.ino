@@ -57,14 +57,14 @@ bool checkEEPROM(trackerSettings *myTrackerSettings)
   result = result && ((stx == myTrackerSettings->STX) && (etx == myTrackerSettings->ETX)); // Check that EEPROM STX and ETX match the values in RAM
   result = result && ((csuma == eeprom_csuma) && (csumb == eeprom_csumb)); // Check that the EEPROM checksums are valid
   result = result && ((stx == DEF_STX) && (etx == DEF_ETX)); // Check that EEPROM STX and ETX are actually STX and ETX (not zero!)
-  debugPrint("checkEEPROM: ");
+  debugPrint(F("checkEEPROM: "));
   if (result == true)
   {
-    debugPrintln("valid");
+    debugPrintln(F("valid"));
   }
   else
   {
-    debugPrintln("invalid");
+    debugPrintln(F("invalid"));
   }
   return (result);
 }
@@ -77,9 +77,9 @@ void updateEEPROMchecksum() // Update the two EEPROM checksum bytes
   EEPROM.write(LOC_CSUMB, csumb);
   if (_printDebug == true)
   {
-    debugPrint("updateEEPROMchecksum: checksums updated: ");
+    debugPrint(F("updateEEPROMchecksum: checksums updated: "));
     _debugSerial->print(csuma, HEX);
-    debugPrint(" ");
+    debugPrint(F(" "));
     _debugSerial->println(csumb, HEX);
   }
 }
@@ -142,7 +142,7 @@ void initTrackerSettings(trackerSettings *myTrackerSettings) // Initialises the 
   myTrackerSettings->LOWBATT.the_data = DEF_LOWBATT;
   myTrackerSettings->DYNMODEL = DEF_DYNMODEL;
   myTrackerSettings->ETX = DEF_ETX;
-  debugPrintln("initTrackerSettings: RAM tracker settings initialised");
+  debugPrintln(F("initTrackerSettings: RAM tracker settings initialised"));
 }
 
 void putTrackerSettings(trackerSettings *myTrackerSettings) // Write the trackerSettings from RAM into EEPROM
@@ -183,7 +183,7 @@ void putTrackerSettings(trackerSettings *myTrackerSettings) // Write the tracker
   EEPROM.put(LOC_DYNMODEL, (byte)myTrackerSettings->DYNMODEL);
   EEPROM.put(LOC_ETX, myTrackerSettings->ETX);
   updateEEPROMchecksum();
-  debugPrintln("putTrackerSettings: tracker settings stored in EEPROM");
+  debugPrintln(F("putTrackerSettings: tracker settings stored in EEPROM"));
 }
 
 void updateTrackerSettings(trackerSettings *myTrackerSettings) // Update any changed trackerSettings in EEPROM
@@ -223,7 +223,7 @@ void updateTrackerSettings(trackerSettings *myTrackerSettings) // Update any cha
   EEPROM.update(LOC_DYNMODEL, (byte)myTrackerSettings->DYNMODEL);
   EEPROM.update(LOC_ETX, myTrackerSettings->ETX);
   updateEEPROMchecksum();
-  debugPrintln("updateTrackerSettings: EEPROM tracker settings updated");
+  debugPrintln(F("updateTrackerSettings: EEPROM tracker settings updated"));
 }
 
 void getTrackerSettings(trackerSettings *myTrackerSettings) // Read the trackerSettings from EEPROM into RAM
@@ -262,7 +262,7 @@ void getTrackerSettings(trackerSettings *myTrackerSettings) // Read the trackerS
   EEPROM.get(LOC_LOWBATT, myTrackerSettings->LOWBATT.the_data);
   EEPROM.get(LOC_DYNMODEL, myTrackerSettings->DYNMODEL);
   EEPROM.get(LOC_ETX, myTrackerSettings->ETX);
-  debugPrintln("getTrackerSettings: tracker setings loaded from EEPROM to RAM");
+  debugPrintln(F("getTrackerSettings: tracker setings loaded from EEPROM to RAM"));
 }
 
 void displayEEPROMcontents() // Display the EEPROM data nicely
@@ -370,7 +370,7 @@ enum tracker_serial_rx_status check_for_serial_data(bool fresh)
 
   if (millis() - rx_start >= 1000UL * CHECK_SERIAL_TIMEOUT) // Check if we have timed out
   {
-    debugPrintln("check_for_serial_data: timed out");
+    debugPrintln(F("check_for_serial_data: timed out"));
     return (DATA_TIMEOUT);
   }
 
@@ -385,7 +385,7 @@ enum tracker_serial_rx_status check_for_serial_data(bool fresh)
     return (DATA_SEEN);
   }
 
-  debugPrintln("check_for_serial_data: data received");
+  debugPrintln(F("check_for_serial_data: data received"));
   return (DATA_RECEIVED);
 }
 
@@ -411,7 +411,7 @@ enum tracker_parsing_result check_data(uint8_t *data_buffer, size_t &data_buffer
   // Is there enough data in the buffer? At least STX, ETX, CSUMA, CSUMB
   if (data_buffer_size < 4)
   {
-    debugPrintln("check_data: data too short");
+    debugPrintln(F("check_data: data too short"));
     return (DATA_TOO_SHORT);
   }
 
@@ -421,7 +421,7 @@ enum tracker_parsing_result check_data(uint8_t *data_buffer, size_t &data_buffer
   // (I.e. we don't need to check if the first two bytes are "RB" here)
   if ((data_buffer[0] == '0') && (data_buffer[1] == '2'))
   {
-    debugPrintln("check_data: data is ASCII Hex");
+    debugPrintln(F("check_data: data is ASCII Hex"));
     size_t pointer = 0;
     while (pointer < data_buffer_size)
     {
@@ -438,28 +438,28 @@ enum tracker_parsing_result check_data(uint8_t *data_buffer, size_t &data_buffer
   size_t startAtByte = 0; // If this is a forwarded message, use startAtByte to hold the 5 byte offset
   if ((data_buffer[0] == 'R') && (data_buffer[1] == 'B'))
   {
-    debugPrintln("check_data: data has a RockBLOCK header. Ignoring it...");
+    debugPrintln(F("check_data: data has a RockBLOCK header. Ignoring it..."));
     startAtByte = 5; // set startAtByte to 5 to skip the header
   }
 
   // First check for the STX
   if (data_buffer[startAtByte] != 2)
   {
-    debugPrintln("check_data: no STX");
+    debugPrintln(F("check_data: no STX"));
     return (NO_STX);
   }
   
   // Next check there is enough data in the buffer
   if (data_buffer_size < 4)
   {
-    debugPrintln("check_data: data too short");
+    debugPrintln(F("check_data: data too short"));
     return (DATA_TOO_SHORT);
   }
   
   // Next check for the ETX
   if (data_buffer[data_buffer_size - 3] != 3)
   {
-    debugPrintln("check_data: no ETX");
+    debugPrintln(F("check_data: no ETX"));
     return (NO_ETX);
   }
   
@@ -479,13 +479,13 @@ enum tracker_parsing_result check_data(uint8_t *data_buffer, size_t &data_buffer
   {
     if (_printDebug == true)
     {
-      debugPrint("check_data: checksum error ");
+      debugPrint(F("check_data: checksum error "));
       _debugSerial->print(csuma, HEX);
-      debugPrint(" ");
+      debugPrint(F(" "));
       _debugSerial->print(data_buffer[data_buffer_size -2], HEX);
-      debugPrint(" ");
+      debugPrint(F(" "));
       _debugSerial->print(csumb, HEX);
-      debugPrint(" ");
+      debugPrint(F(" "));
       _debugSerial->println(data_buffer[data_buffer_size -1], HEX);
     }
     return (CHECKSUM_ERROR);
@@ -494,7 +494,7 @@ enum tracker_parsing_result check_data(uint8_t *data_buffer, size_t &data_buffer
   // Return now if the message is STX,ETX,CSUMA,CSUMB
   if (((startAtByte == 0) && (data_buffer_size == 4)) || ((startAtByte == 5) && (data_buffer_size == 9)))
   {
-    debugPrintln("check_data: message is valid but contains no data");
+    debugPrintln(F("check_data: message is valid but contains no data"));
     return (DATA_VALID);
   }
   
@@ -508,7 +508,7 @@ enum tracker_parsing_result check_data(uint8_t *data_buffer, size_t &data_buffer
       x += data_width + 1; // If it is, add the ID + data width to the pointer
       if (x > (data_buffer_size - 2))
       {
-        debugPrintln("check_data: invalid data width");
+        debugPrintln(F("check_data: invalid data width"));
         return (DATA_WIDTH_INVALID);
       }
     }
@@ -516,9 +516,9 @@ enum tracker_parsing_result check_data(uint8_t *data_buffer, size_t &data_buffer
     {
       if (_printDebug == true)
       {
-        debugPrint("check_data: invalid field ID ( ");
+        debugPrint(F("check_data: invalid field ID ( "));
         _debugSerial->print(data_buffer[x]);
-        debugPrintln(" ) encountered");
+        debugPrintln(F(" ) encountered"));
       }
       return (INVALID_FIELD);
     }

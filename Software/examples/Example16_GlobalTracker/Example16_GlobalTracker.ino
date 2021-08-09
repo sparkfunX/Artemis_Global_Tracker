@@ -91,7 +91,7 @@ SFE_UBLOX_GNSS myGPS;
 #include "Tracker_Message_Fields.h" // Include the message field and storage definitions
 trackerSettings myTrackerSettings; // Create storage for the tracker settings in RAM
 
-#define noTX // Uncomment this line to disable the Iridium SBD transmit if you want to test the code without using message credits
+//#define noTX // Uncomment this line to disable the Iridium SBD transmit if you want to test the code without using message credits
 //#define skipGNSS // Uncomment this line to skip getting a GNSS fix (only valid if noTX is defined too)
 
 #include "RTC.h" //Include RTC library included with the Arduino_Apollo3 core
@@ -101,7 +101,7 @@ trackerSettings myTrackerSettings; // Create storage for the tracker settings in
 // We use Serial1 to communicate with the Iridium modem. Serial1 on the ATP uses pin 24 for TX and 25 for RX. AGT uses the same pins.
 
 #include <IridiumSBD.h> //http://librarymanager/All#IridiumSBDI2C
-#define DIAGNOSTICS true //false // Change this to true to see IridiumSBD diagnostics
+#define DIAGNOSTICS false // Change this to true to see IridiumSBD diagnostics
 // Declare the IridiumSBD object (including the sleep (ON/OFF) and Ring Indicator pins)
 IridiumSBD modem(Serial1, iridiumSleep, iridiumRI);
 
@@ -389,7 +389,7 @@ void loop()
       if (barometricSensorOK == false)
       {
         // Send a warning message if we were unable to connect to the MS8607:
-        Serial.println(F("*! Could not detect the MS8607 sensor. Trying again... !*"));
+        Serial.println(F("*** Could not detect the MS8607 sensor. Trying again... ***"));
         barometricSensorOK = barometricSensor.begin(agtWire); // Re-begin the PHT sensor
         if (barometricSensorOK == false)
         {
@@ -1229,7 +1229,7 @@ void loop()
           if ((myTrackerSettings.MOFIELDS[0].the_data & MOFIELDS0_HEAD) == MOFIELDS0_HEAD) // If the bit is set
           {
             char temp_str[8]; // temporary string
-            ((((float)myTrackerSettings.HEAD.the_data) / 10000000.0),temp_str,1,8); // Convert to degrees
+            ftoa((((float)myTrackerSettings.HEAD.the_data) / 10000000.0),temp_str,1,8); // Convert to degrees
             sprintf(outBuffer+outBufferPtr, "%s,", temp_str); // Add the field to outBuffer
             while (outBuffer[outBufferPtr] != 0x00) outBufferPtr++; // increment the pointer
           }
@@ -2356,7 +2356,9 @@ void loop()
       disableDebugging(); // Disable the serial debug messages
 
       // Close and detach the serial console
-      Serial.println(F("Going into deep sleep until next WAKEINT..."));
+      Serial.print(F("Going into deep sleep until next WAKEINT ("));
+      Serial.print(wake_int);
+      Serial.println(F(" seconds)."));
       Serial.flush(); //Finish any prints
       Serial.end(); // Close the serial console
 
