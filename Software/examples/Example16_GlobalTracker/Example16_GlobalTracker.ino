@@ -138,6 +138,7 @@ int err; // Error value returned by IridiumSBD.begin
 bool firstTime = true; // Flag to indicate if this is the first time around the loop (so we go right round the loop and not just check the PHT)
 int delayCount; // General-purpose delay count used by non-blocking delays
 bool alarmState = false; // Use this to keep track of whether we are in an alarm state
+uint8_t alarmType = 0; // Field to save which alarm has been set off
 bool dynamicModelSet = false; // Flag to indicate if the ZOE-M8Q dynamic model has been set
 bool geofencesSet = false; // Flag to indicate if the ZOE-M8Q geofences been set
 
@@ -420,57 +421,58 @@ void loop()
       }
 
       alarmState = false; // Clear the alarm state
+      alarmType = 0; // Clear the alarm type
 
       // Check if a PHT alarm has occurred
-      if ((myTrackerSettings.FLAGS1 & FLAGS1_HIPRESS) == FLAGS1_HIPRESS) // If the HIPRESS alarm is enabled
+      if (myTrackerSettings.PRESS.the_data > myTrackerSettings.HIPRESS.the_data) // Check if HIPRESS has been exceeded
       {
-        // Check if HIPRESS has been exceeded
-        if (myTrackerSettings.PRESS.the_data > myTrackerSettings.HIPRESS.the_data)
+        alarmType |= ALARM_HIPRESS;
+        if ((myTrackerSettings.FLAGS1 & FLAGS1_HIPRESS) == FLAGS1_HIPRESS) // If the HIPRESS alarm is enabled
         {
           alarmState = true;
           Serial.println(F("*** HIPRESS Alarm! ***"));
         }
       }
-      if ((myTrackerSettings.FLAGS1 & FLAGS1_LOPRESS) == FLAGS1_LOPRESS) // If the LOPRESS alarm is enabled
+      if (myTrackerSettings.PRESS.the_data < myTrackerSettings.LOPRESS.the_data) // Check if LOPRESS has been exceeded
       {
-        // Check if LOPRESS has been exceeded
-        if (myTrackerSettings.PRESS.the_data < myTrackerSettings.LOPRESS.the_data)
+        alarmType |= ALARM_LOPRESS;
+        if ((myTrackerSettings.FLAGS1 & FLAGS1_LOPRESS) == FLAGS1_LOPRESS) // If the LOPRESS alarm is enabled
         {
           alarmState = true;
           Serial.println(F("*** LOPRESS Alarm! ***"));
         }
       }
-      if ((myTrackerSettings.FLAGS1 & FLAGS1_HITEMP) == FLAGS1_HITEMP) // If the HITEMP alarm is enabled
+      if (myTrackerSettings.TEMP.the_data > myTrackerSettings.HITEMP.the_data) // Check if HITEMP has been exceeded
       {
-        // Check if HITEMP has been exceeded
-        if (myTrackerSettings.TEMP.the_data > myTrackerSettings.HITEMP.the_data)
+        alarmType |= ALARM_HITEMP;
+        if ((myTrackerSettings.FLAGS1 & FLAGS1_HITEMP) == FLAGS1_HITEMP) // If the HITEMP alarm is enabled
         {
           alarmState = true;
           Serial.println(F("*** HITEMP Alarm! ***"));
         }
       }
-      if ((myTrackerSettings.FLAGS1 & FLAGS1_LOTEMP) == FLAGS1_LOTEMP) // If the LOTEMP alarm is enabled
+      if (myTrackerSettings.TEMP.the_data < myTrackerSettings.LOTEMP.the_data) // Check if LOTEMP has been exceeded
       {
-        // Check if LOTEMP has been exceeded
-        if (myTrackerSettings.TEMP.the_data < myTrackerSettings.LOTEMP.the_data)
+        alarmType |= ALARM_LOTEMP;
+        if ((myTrackerSettings.FLAGS1 & FLAGS1_LOTEMP) == FLAGS1_LOTEMP) // If the LOTEMP alarm is enabled
         {
           alarmState = true;
           Serial.println(F("*** LOTEMP Alarm! ***"));
         }
       }
-      if ((myTrackerSettings.FLAGS1 & FLAGS1_HIHUMID) == FLAGS1_HIHUMID) // If the HIHUMID alarm is enabled
+      if (myTrackerSettings.HUMID.the_data > myTrackerSettings.HIHUMID.the_data) // Check if HIHUMID has been exceeded
       {
-        // Check if HIHUMID has been exceeded
-        if (myTrackerSettings.HUMID.the_data > myTrackerSettings.HIHUMID.the_data)
+        alarmType |= ALARM_HIHUMID;
+        if ((myTrackerSettings.FLAGS1 & FLAGS1_HIHUMID) == FLAGS1_HIHUMID) // If the HIHUMID alarm is enabled
         {
           alarmState = true;
           Serial.println(F("*** HIHUMID Alarm! ***"));
         }
       }
-      if ((myTrackerSettings.FLAGS1 & FLAGS1_LOHUMID) == FLAGS1_LOHUMID) // If the LOHUMID alarm is enabled
+      if (myTrackerSettings.HUMID.the_data < myTrackerSettings.LOHUMID.the_data) // Check if LOHUMID has been exceeded
       {
-        // Check if LOHUMID has been exceeded
-        if (myTrackerSettings.HUMID.the_data < myTrackerSettings.LOHUMID.the_data)
+        alarmType |= ALARM_LOHUMID;
+        if ((myTrackerSettings.FLAGS1 & FLAGS1_LOHUMID) == FLAGS1_LOHUMID) // If the LOHUMID alarm is enabled
         {
           alarmState = true;
           Serial.println(F("*** LOHUMID Alarm! ***"));
@@ -480,6 +482,7 @@ void loop()
       // If voltage is lower than LOWBATT, send an alarm message
       get_vbat(); // Get the battery (bus) voltage
       if (myTrackerSettings.BATTV.the_data < myTrackerSettings.LOWBATT.the_data) {
+        alarmType |= ALARM_LOBATT;
         Serial.print(F("*** LOWBATT: "));
         Serial.print((((float)myTrackerSettings.BATTV.the_data)/100.0),2);
         Serial.println(F("V ***"));
@@ -488,6 +491,10 @@ void loop()
           alarmState = true;
           Serial.println(F("*** LOWBATT Alarm! ***"));
         }
+      }
+      // If an alarm has fired, execute alarm user function
+      if (alarmType) {
+        ALARM_FUNC(alarmType); // Execute alarm user function
       }
 
       loop_step = start_GPS; // Get ready to move on and start the GPS
