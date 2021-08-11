@@ -112,3 +112,9 @@ float USER_VAL_8()
   retVal = 8.0E8; // Set retVal to 8.0E8 for testing - delete this line if you add your own code
   return (retVal);
 }
+
+void ALARM_FUNC(uint8_t alarmType)
+{
+  debugPrintln(F("Executing ALARM_FUNC ..."));
+  // Add your own code to be executed when an alarm is set off.
+}

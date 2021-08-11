@@ -236,6 +236,15 @@
 #define MOFIELDS2_LOWBATT   0x00200000
 #define MOFIELDS2_DYNMODEL  0x00100000
 
+// Define the bits for the alarm types
+#define ALARM_HIPRESS 0x01
+#define ALARM_LOPRESS 0x02
+#define ALARM_HITEMP  0x04
+#define ALARM_LOTEMP  0x08
+#define ALARM_HIHUMID 0x10
+#define ALARM_LOHUMID 0x20
+#define ALARM_LOBATT  0x40
+
 #define MOLIM 340 // Length limit for a Mobile Originated message
 #define MTLIM 270 // Length limit for a Mobile Terminated message
 
