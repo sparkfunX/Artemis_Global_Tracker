@@ -49,9 +49,23 @@ TwoWire qwiic(40,39); //Will use Artemis pads 39 (SCL) and 40 (SDA)
 //Create an instance of the MS8607 object
 MS8607 barometricSensor;
 
+void gnssON(void) // Enable power for the GNSS
+{
+  am_hal_gpio_pincfg_t pinCfg = g_AM_HAL_GPIO_OUTPUT; // Begin by making the gnssEN pin an open-drain output
+  pinCfg.eGPOutcfg = AM_HAL_GPIO_PIN_OUTCFG_OPENDRAIN;
+  pin_config(PinName(gnssEN), pinCfg);
+  delay(1);
+  
+  digitalWrite(gnssEN, LOW); // Enable GNSS power (HIGH = disable; LOW = enable)
+}
+
 void gnssOFF(void) // Disable power for the GNSS
 {
-  pinMode(gnssEN, INPUT_PULLUP); // Configure the pin which enables power for the ZOE-M8Q GNSS
+  am_hal_gpio_pincfg_t pinCfg = g_AM_HAL_GPIO_OUTPUT; // Begin by making the gnssEN pin an open-drain output
+  pinCfg.eGPOutcfg = AM_HAL_GPIO_PIN_OUTCFG_OPENDRAIN;
+  pin_config(PinName(gnssEN), pinCfg);
+  delay(1);
+  
   digitalWrite(gnssEN, HIGH); // Disable GNSS power (HIGH = disable; LOW = enable)
 }
 
