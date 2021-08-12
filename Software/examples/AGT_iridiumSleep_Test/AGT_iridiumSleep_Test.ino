@@ -79,25 +79,35 @@ void IridiumSBD::configureSleepPin()
     .eIntDir = 0x0,                                         // NO interrupts
     .eGPRdZero = AM_HAL_GPIO_PIN_RDZERO_ZERO                // when read read zero
   };
+  delay(10);
   pin_config(PinName(this->sleepPin), PadDef); // Make the pin a tri-state output
-  delay(1);
+  delay(10);
   diagprint(F("custom configureSleepPin: sleepPin configured\r\n"));
+  delay(10);
 }
 
 // Overwrite IridiumSBD::setSleepPin with a custom function
 void IridiumSBD::setSleepPin(uint8_t enable)
 {
+  delay(10);
   am_hal_gpio_state_write(PinName(this->sleepPin), AM_HAL_GPIO_OUTPUT_TRISTATE_DISABLE);
-  delay(1);
+  delay(10);
+  diagprint(F("custom setSleepPin: sleepPin tristate_disable\r\n"));
+  delay(10);
+  
   am_hal_gpio_state_write(PinName(this->sleepPin), enable == HIGH ? AM_HAL_GPIO_OUTPUT_SET : AM_HAL_GPIO_OUTPUT_CLEAR);
-  delay(1);
-  am_hal_gpio_state_write(PinName(this->sleepPin), AM_HAL_GPIO_OUTPUT_TRISTATE_ENABLE);
-  delay(1);
+  delay(10);
   diagprint(F("custom setSleepPin: sleepPin set "));
   if (enable == HIGH)
      diagprint(F("HIGH\r\n"));
   else
      diagprint(F("LOW\r\n"));
+  delay(10);
+
+  am_hal_gpio_state_write(PinName(this->sleepPin), AM_HAL_GPIO_OUTPUT_TRISTATE_ENABLE);
+  delay(10);
+  diagprint(F("custom setSleepPin: sleepPin tristate_enable\r\n"));
+  delay(10);
 }
 
 void gnssON(void) // Enable power for the GNSS
