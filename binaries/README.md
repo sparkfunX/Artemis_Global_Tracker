@@ -19,6 +19,7 @@ To use:
   * **Example14 - Simple Tracker** is a simple tracker which: wakes up every INTERVAL minutes; gets a GNSS fix; reads the PHT sensor; and sends all the data in a SBD message.
   * **Example15 - Better Tracker** is a better tracker where the INTERVAL, RBDESTINATION and RBSOURCE are stored in 'EEPROM' (Flash) and can be configured via Iridium SBD messages.
   * **Example16 - Global Tracker** is the full Global Tracker. All of the settings can be configured via USB-C or remotely via an Iridium SBD message using the [Artemis Global Tracker Configuration Tool (AGTCT)](../Tools).
+  * **Example19 - Serial Terminal** allows the AGT to be operated via a simple Serial Terminal interface. Open the Serial Monitor or a Terminal Emulator at 115200 baud to see the menu.
 * Attach the AGT target board using USB
 * Select the COM port (hit Refresh to refresh the list of USB devices)
 * Press Upload

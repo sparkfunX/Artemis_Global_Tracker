@@ -74,7 +74,18 @@ but this will increase the current draw considerably. This is not recommended fo
 
 Please refer to the [GlobalTracker FAQs](../../Documentation/GlobalTracker_FAQs/README.md) for more information.
 
-**Example17 - Production Test** is the code used to test the Artemis Global Tracker during production. You will need an AGT Test Header to allow this code to run.
+**Example17 - Production Test** is code used to test the Artemis Global Tracker during production. You will need an AGT Test Header to allow this code to run.
+
+**Example18 - Production Test 2** is code used to test the Artemis Global Tracker during production. You will need an AGT Test Header to allow this code to run.
+
+**Example19 - Serial Terminal** allows the AGT to be operated via a simple Serial Terminal interface. Open the Serial Monitor or a Terminal Emulator at 115200 baud to see the menu. You can:
+- Read the temperature and pressure from the MS8607
+- Read position, velocity and time data from the ZOE-M8Q GNSS
+- Check for new Iridium messages
+- Send and receive text and binary Iridium messages
+- Flush the Iridium Mobile Terminated message queue
+
+**Example20 - GNSS Module Info** reads the module information from the ZOE-M8Q GNSS, allowing you to see what software version it is running
 
 <br/>
 
