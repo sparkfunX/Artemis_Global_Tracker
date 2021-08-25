@@ -87,6 +87,8 @@ Please refer to the [GlobalTracker FAQs](../../Documentation/GlobalTracker_FAQs/
 
 **Example20 - GNSS Module Info** reads the module information from the ZOE-M8Q GNSS, allowing you to see what software version it is running
 
+**Example21 - Iridium Serial and Power Test** tests the work-around for v2.1 of the Apollo3 core (where the Iridium modem pulling the Serial1 RX pin low can cause the Artemis to hang)
+
 <br/>
 
 To run the examples, you will need to install **v2.1.0** of the SparkFun Apollo3 core and then set the board to the "**RedBoard Artemis ATP**":

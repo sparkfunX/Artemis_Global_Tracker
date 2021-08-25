@@ -3,7 +3,7 @@
   Example: A Better Tracker
   
   Written by Paul Clark (PaulZC)
-  August 9th 2021
+  August 25th 2021
 
   ** Updated for v2.1.0 of the Apollo3 core / Artemis board package **
   ** (At the time of writing, v2.1.1 of the core conatins a feature which makes communication with the u-blox GNSS problematic. Be sure to use v2.1.0) **
@@ -61,6 +61,8 @@
   Buy a board from SparkFun!
 
   Version history:
+  August 25th 2021
+    Added a fix for https://github.com/sparkfun/Arduino_Apollo3/issues/423
   August 7th 2021
     Updated for v2.1 of the Apollo3 core
   December 15th, 2020:
@@ -278,6 +280,34 @@ void gnssOFF(void) // Disable power for the GNSS
   delay(1);
   
   digitalWrite(gnssEN, HIGH); // Disable GNSS power (HIGH = disable; LOW = enable)
+}
+
+// Overwrite the IridiumSBD beginSerialPort function - a fix for https://github.com/sparkfun/Arduino_Apollo3/issues/423
+void IridiumSBD::beginSerialPort() // Start the serial port connected to the satellite modem
+{
+  diagprint(F("custom IridiumSBD::beginSerialPort\r\n"));
+  
+  // Configure the standard ATP pins for UART1 TX and RX - endSerialPort may have disabled the RX pin
+  
+  am_hal_gpio_pincfg_t pinConfigTx = g_AM_BSP_GPIO_COM_UART_TX;
+  pinConfigTx.uFuncSel = AM_HAL_PIN_24_UART1TX;
+  pin_config(D24, pinConfigTx);
+  
+  am_hal_gpio_pincfg_t pinConfigRx = g_AM_BSP_GPIO_COM_UART_RX;
+  pinConfigRx.uFuncSel = AM_HAL_PIN_25_UART1RX;
+  pinConfigRx.ePullup = AM_HAL_GPIO_PIN_PULLUP_WEAK; // Put a weak pull-up on the Rx pin
+  pin_config(D25, pinConfigRx);
+  
+  Serial1.begin(19200);
+}
+
+// Overwrite the IridiumSBD endSerialPort function - a fix for https://github.com/sparkfun/Arduino_Apollo3/issues/423
+void IridiumSBD::endSerialPort()
+{
+  diagprint(F("custom IridiumSBD::endSerialPort\r\n"));
+  
+  // Disable the Serial1 RX pin to avoid the code hang
+  am_hal_gpio_pinconfig(PinName(D25), g_AM_HAL_GPIO_DISABLE);
 }
 
 void setup()
@@ -754,17 +784,11 @@ void loop()
       digitalWrite(iridiumPwrEN, HIGH); // Enable Iridium Power
       delay(1000);
 
-      // Enable the 9603N and start talking to it
-      Serial.println(F("Beginning to talk to the 9603..."));
-
-      // Start the serial port connected to the satellite modem
-      Serial1.begin(19200);
-      delay(1000);
-
       // Relax timing constraints waiting for the supercap to recharge.
       modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);
 
       // Begin satellite modem operation
+      // Also begin the serial port connected to the satellite modem via IridiumSBD::beginSerialPort
       Serial.println(F("Starting modem..."));
       agtErr = modem.begin();
 
@@ -797,8 +821,8 @@ void loop()
         ftoa(agtVbat,vbatStr,2,6);
         char speedStr[8]; // speed string
         ftoa(agtSpeed,speedStr,2,8);
-        char pressureStr[8]; // pressure string
-        ftoa(agtPascals,pressureStr,0,8);
+        char pressureStr[9]; // pressure string
+        ftoa(agtPascals,pressureStr,0,9);
         char temperatureStr[10]; // temperature string
         ftoa(agtTempC,temperatureStr,1,10);
 
@@ -994,6 +1018,7 @@ void loop()
         }
 
         // Power down the modem
+        // Also disable the Serial1 RX pin via IridiumSBD::endSerialPort
         Serial.println(F("Putting the 9603N to sleep."));
         agtErr = modem.sleep();
         if (agtErr != ISBD_SUCCESS)
@@ -1019,6 +1044,9 @@ void loop()
         // Power down the GNSS
         Serial.println(F("Powering down the GNSS..."));
         gnssOFF(); // Disable power for the GNSS
+  
+        // Make sure the Serial1 RX pin is disabled
+        modem.endSerialPort();
   
         // Disable 9603N power
         Serial.println(F("Disabling 9603N power..."));
@@ -1108,14 +1136,7 @@ void loop()
       pin_config(PinName(48), g_AM_BSP_GPIO_COM_UART_TX);
       pin_config(PinName(49), g_AM_BSP_GPIO_COM_UART_RX);
     
-      // Renable UART1 pins: TX (24) and RX (25)
-      am_hal_gpio_pincfg_t pinConfigTx = g_AM_BSP_GPIO_COM_UART_TX;
-      pinConfigTx.uFuncSel = AM_HAL_PIN_24_UART1TX;
-      pin_config(PinName(24), pinConfigTx);
-      am_hal_gpio_pincfg_t pinConfigRx = g_AM_BSP_GPIO_COM_UART_RX;
-      pinConfigRx.uFuncSel = AM_HAL_PIN_25_UART1RX;
-      pinConfigRx.ePullup = AM_HAL_GPIO_PIN_PULLUP_WEAK; // Put a weak pull-up on the Rx pin
-      pin_config(PinName(25), pinConfigRx);
+      // Do not renable the UART1 pins here as the modem is still powered off. Let modem.begin do it via beginSerialPort.
     
       // Enable ADC
       powerControlADC(true);

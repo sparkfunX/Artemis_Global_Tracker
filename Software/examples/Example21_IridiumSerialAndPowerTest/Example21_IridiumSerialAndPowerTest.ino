@@ -1,9 +1,9 @@
 /*
  Artemis Global Tracker
- Example: GetIMEI
+ Example: Iridium Serial and Power Test
 
  Written by Paul Clark (PaulZC)
- August 7th 2021
+ August 25th 2021
 
  ** Updated for v2.1.0 of the Apollo3 core / Artemis board package **
  ** (At the time of writing, v2.1.1 of the core conatins a feature which makes communication with the u-blox GNSS problematic. Be sure to use v2.1.0) **
@@ -11,8 +11,13 @@
  ** Set the Board to "RedBoard Artemis ATP" **
  ** (The Artemis Module does not have a Wire port defined, which prevents the IridiumSBD library from compiling) **
 
- This example powers up the Iridium 9603N and reads its IMEI.
- You do not need message credits or line rental to run this example.
+ Version 2.1 of the Apollo3 core contains an interesting bug: the Artemis will hang if the Serial1 RX pin is held low
+ for more than ~9.5 bit periods:
+ https://github.com/sparkfun/Arduino_Apollo3/issues/423
+ https://github.com/sparkfun/Arduino_Apollo3/issues/349
+ On the AGT, the Iridium modem is connected to Serial1. When we power-down the modem, we need to disable the RX pin
+ to prevent the Artemis from hanging. We do this via customised (overwritten) versions of IridiumSBD::beginSerialPort and 
+ IridiumSBD::endSerialPort.
  
  You will need to install this version of the Iridium SBD library
  before this example will run successfully:
@@ -60,55 +65,9 @@
 // We use Serial1 to communicate with the Iridium modem. Serial1 on the ATP uses pin 24 for TX and 25 for RX. AGT uses the same pins.
 
 #include <IridiumSBD.h> //http://librarymanager/All#IridiumSBDI2C
-#define DIAGNOSTICS true //false // Change this to true to see IridiumSBD diagnostics
+#define DIAGNOSTICS false // Change this to true to see IridiumSBD diagnostics
 // Declare the IridiumSBD object (including the sleep (ON/OFF) and Ring Indicator pins)
 IridiumSBD modem(Serial1, iridiumSleep, iridiumRI);
-
-// Overwrite IridiumSBD::configureSleepPin with a custom function
-void IridiumSBD::configureSleepPin()
-{
-  // Thank you Paulvha: https://github.com/paulvha/apollo3/blob/master/APgpio/src/APgpio.cpp
-  am_hal_gpio_pincfg_t PadDef =
-  {
-    .uFuncSel = 3,                                          // set pin as GPIO
-    .ePowerSw = AM_HAL_GPIO_PIN_POWERSW_NONE,               // no power switch
-    .ePullup = AM_HAL_GPIO_PIN_PULLUP_NONE,                 // no pullup
-    .eDriveStrength = AM_HAL_GPIO_PIN_DRIVESTRENGTH_2MA,    // 2mA max output
-    .eGPOutcfg = AM_HAL_GPIO_PIN_OUTCFG_TRISTATE,           // Set pin to tri-state
-    .eGPInput = AM_HAL_GPIO_PIN_INPUT_NONE,                 // no input
-    .eIntDir = 0x0,                                         // NO interrupts
-    .eGPRdZero = AM_HAL_GPIO_PIN_RDZERO_ZERO                // when read read zero
-  };
-  delay(10);
-  pin_config(PinName(this->sleepPin), PadDef); // Make the pin a tri-state output
-  delay(10);
-  diagprint(F("custom configureSleepPin: sleepPin configured\r\n"));
-  delay(10);
-}
-
-// Overwrite IridiumSBD::setSleepPin with a custom function
-void IridiumSBD::setSleepPin(uint8_t enable)
-{
-  delay(10);
-  am_hal_gpio_state_write(PinName(this->sleepPin), AM_HAL_GPIO_OUTPUT_TRISTATE_DISABLE);
-  delay(10);
-  diagprint(F("custom setSleepPin: sleepPin tristate_disable\r\n"));
-  delay(10);
-  
-  am_hal_gpio_state_write(PinName(this->sleepPin), enable == HIGH ? AM_HAL_GPIO_OUTPUT_SET : AM_HAL_GPIO_OUTPUT_CLEAR);
-  delay(10);
-  diagprint(F("custom setSleepPin: sleepPin set "));
-  if (enable == HIGH)
-     diagprint(F("HIGH\r\n"));
-  else
-     diagprint(F("LOW\r\n"));
-  delay(10);
-
-  am_hal_gpio_state_write(PinName(this->sleepPin), AM_HAL_GPIO_OUTPUT_TRISTATE_ENABLE);
-  delay(10);
-  diagprint(F("custom setSleepPin: sleepPin tristate_enable\r\n"));
-  delay(10);
-}
 
 void gnssON(void) // Enable power for the GNSS
 {
@@ -130,11 +89,36 @@ void gnssOFF(void) // Disable power for the GNSS
   digitalWrite(gnssEN, HIGH); // Disable GNSS power (HIGH = disable; LOW = enable)
 }
 
+// Overwrite the IridiumSBD beginSerialPort function - a fix for https://github.com/sparkfun/Arduino_Apollo3/issues/423
+void IridiumSBD::beginSerialPort() // Start the serial port connected to the satellite modem
+{
+  diagprint(F("custom IridiumSBD::beginSerialPort\r\n"));
+  
+  // Configure the standard ATP pins for UART1 TX and RX - endSerialPort may have disabled the RX pin
+  
+  am_hal_gpio_pincfg_t pinConfigTx = g_AM_BSP_GPIO_COM_UART_TX;
+  pinConfigTx.uFuncSel = AM_HAL_PIN_24_UART1TX;
+  pin_config(D24, pinConfigTx);
+  
+  am_hal_gpio_pincfg_t pinConfigRx = g_AM_BSP_GPIO_COM_UART_RX;
+  pinConfigRx.uFuncSel = AM_HAL_PIN_25_UART1RX;
+  pinConfigRx.ePullup = AM_HAL_GPIO_PIN_PULLUP_WEAK; // Put a weak pull-up on the Rx pin
+  pin_config(D25, pinConfigRx);
+  
+  Serial1.begin(19200);
+}
+
+// Overwrite the IridiumSBD endSerialPort function - a fix for https://github.com/sparkfun/Arduino_Apollo3/issues/423
+void IridiumSBD::endSerialPort()
+{
+  diagprint(F("custom IridiumSBD::endSerialPort\r\n"));
+  
+  // Disable the Serial1 RX pin to avoid the code hang
+  am_hal_gpio_pinconfig(PinName(D25), g_AM_HAL_GPIO_DISABLE);
+}
+
 void setup()
 {
-  int signalQuality = -1;
-  int err;
-  
   pinMode(LED, OUTPUT); // Make the LED pin an output
 
   gnssOFF(); // Disable power for the GNSS
@@ -158,7 +142,7 @@ void setup()
   Serial.println();
   Serial.println();
   Serial.println(F("Artemis Global Tracker"));
-  Serial.println(F("Example: Get IMEI"));
+  Serial.println(F("Example: Iridium Serial and Power Test"));
   Serial.println();
 
   //empty the serial buffer
@@ -186,17 +170,19 @@ void setup()
   }
   Serial.println(F("Supercapacitors charged!"));
 
+}
+
+void loop()
+{
   // Enable power for the 9603N
   Serial.println(F("Enabling 9603N power..."));
   digitalWrite(iridiumPwrEN, HIGH); // Enable Iridium Power
   delay(1000);
 
-  // Start the serial port connected to the satellite modem
-  Serial1.begin(19200);
-
   // Begin satellite modem operation
+  // Also begin the serial port connected to the satellite modem via IridiumSBD::beginSerialPort
   Serial.println(F("Starting modem..."));
-  err = modem.begin();
+  int err = modem.begin();
   if (err != ISBD_SUCCESS)
   {
     Serial.print(F("Begin failed: error "));
@@ -220,6 +206,7 @@ void setup()
   Serial.println(F("."));
 
   // Power down the modem
+  // Also disable the Serial1 RX pin via IridiumSBD::endSerialPort
   Serial.println(F("Putting the 9603N to sleep."));
   err = modem.sleep();
   if (err != ISBD_SUCCESS)
@@ -227,21 +214,19 @@ void setup()
     Serial.print(F("sleep failed: error "));
     Serial.println(err);
   }
-  
+
   // Disable 9603N power
   Serial.println(F("Disabling 9603N power..."));
+  Serial.flush();
   digitalWrite(iridiumPwrEN, LOW); // Disable Iridium Power
 
-  // Disable the supercapacitor charger
-  Serial.println(F("Disabling the supercapacitor charger..."));
-  digitalWrite(superCapChgEN, LOW); // Disable the super capacitor charger
-
-  Serial.println(F("Done!"));
-
-}
-
-void loop()
-{
+  Serial.print(F("Waiting for 60 seconds"));
+  for (int i = 0; i < 60; i++)
+  {
+    Serial.print(F("."));
+    delay(1000);
+  }
+  Serial.println();
 }
 
 #if DIAGNOSTICS

@@ -3,7 +3,7 @@
   Example: Serial Terminal
   
   Written by Paul Clark (PaulZC)
-  August 14th 2021
+  August 25th 2021
 
   ** Updated for v2.1.0 of the Apollo3 core / Artemis board package **
   ** (At the time of writing, v2.1.1 of the core conatins a feature which makes communication with the u-blox GNSS problematic. Be sure to use v2.1.0) **
@@ -32,6 +32,8 @@
   Buy a board from SparkFun!
 
   Version history:
+  August 25th 2021
+    Added a fix for https://github.com/sparkfun/Arduino_Apollo3/issues/423
   August 14th 2021
     First commit using v2.1 of the Apollo3 core
 
@@ -162,6 +164,34 @@ void gnssOFF(void) // Disable power for the GNSS
   delay(1);
   
   digitalWrite(gnssEN, HIGH); // Disable GNSS power (HIGH = disable; LOW = enable)
+}
+
+// Overwrite the IridiumSBD beginSerialPort function - a fix for https://github.com/sparkfun/Arduino_Apollo3/issues/423
+void IridiumSBD::beginSerialPort() // Start the serial port connected to the satellite modem
+{
+  diagprint(F("custom IridiumSBD::beginSerialPort\r\n"));
+  
+  // Configure the standard ATP pins for UART1 TX and RX - endSerialPort may have disabled the RX pin
+  
+  am_hal_gpio_pincfg_t pinConfigTx = g_AM_BSP_GPIO_COM_UART_TX;
+  pinConfigTx.uFuncSel = AM_HAL_PIN_24_UART1TX;
+  pin_config(D24, pinConfigTx);
+  
+  am_hal_gpio_pincfg_t pinConfigRx = g_AM_BSP_GPIO_COM_UART_RX;
+  pinConfigRx.uFuncSel = AM_HAL_PIN_25_UART1RX;
+  pinConfigRx.ePullup = AM_HAL_GPIO_PIN_PULLUP_WEAK; // Put a weak pull-up on the Rx pin
+  pin_config(D25, pinConfigRx);
+  
+  Serial1.begin(19200);
+}
+
+// Overwrite the IridiumSBD endSerialPort function - a fix for https://github.com/sparkfun/Arduino_Apollo3/issues/423
+void IridiumSBD::endSerialPort()
+{
+  diagprint(F("custom IridiumSBD::endSerialPort\r\n"));
+  
+  // Disable the Serial1 RX pin to avoid the code hang
+  am_hal_gpio_pinconfig(PinName(D25), g_AM_HAL_GPIO_DISABLE);
 }
 
 void setup()
@@ -721,13 +751,10 @@ bool beginIridium()
   // Enable the 9603N and start talking to it
   Serial.println(F("INFO          : Beginning to talk to the Iridium modem"));
 
-  // Start the serial port connected to the satellite modem
-  Serial1.begin(19200);
-  delay(1000);
-
   modem.setPowerProfile(IridiumSBD::DEFAULT_POWER_PROFILE); // Use the default power profile
 
   // Begin satellite modem operation
+  // Also begin the serial port connected to the satellite modem via IridiumSBD::beginSerialPort
   agtErr = modem.begin();
 
   // Check if the modem started correctly
@@ -737,6 +764,9 @@ bool beginIridium()
     Serial.print(F("ERROR         : modem.begin failed with error "));
     Serial.println(agtErr);
 
+    // Make sure the Serial1 RX pin is disabled
+    modem.endSerialPort();
+  
     Serial.println(F("INFO          : Disabling power for the Iridium modem"));
     digitalWrite(iridiumSleep, LOW); // Put the Iridium 9603N to sleep (HIGH = on; LOW = off/sleep)
     digitalWrite(iridiumPwrEN, LOW); // Disable Iridium Power
@@ -863,6 +893,7 @@ bool iridiumTransfer(const char *bufferPointer, bool binary, size_t binaryLength
 bool endIridium()
 {
   // Power down the modem
+  // Also disable the Serial1 RX pin via IridiumSBD::endSerialPort
   Serial.println(F("INFO          : Putting the Iridium modem to sleep"));
   agtErr = modem.sleep();
   if (agtErr != ISBD_SUCCESS)
