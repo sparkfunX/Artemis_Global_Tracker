@@ -439,7 +439,7 @@ void loop()
       else // The sensor is OK so let's read and print the PHT values
       {
         myTrackerSettings.PRESS.the_data = (uint16_t)(barometricSensor.getPressure()); // mbar
-        myTrackerSettings.TEMP.the_data = (uint16_t)(barometricSensor.getTemperature() * 100.0); // Convert to C * 10^-2
+        myTrackerSettings.TEMP.the_data = (int16_t)(barometricSensor.getTemperature() * 100.0); // Convert to C * 10^-2
         myTrackerSettings.HUMID.the_data = (uint16_t)(barometricSensor.getHumidity() * 100.0); // Convert to %RH * 10^-2
 
         Serial.print(F("Pressure (mbar): "));
