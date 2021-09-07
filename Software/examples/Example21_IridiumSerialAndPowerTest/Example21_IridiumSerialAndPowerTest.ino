@@ -3,7 +3,7 @@
  Example: Iridium Serial and Power Test
 
  Written by Paul Clark (PaulZC)
- August 25th 2021
+ September 7th 2021
 
  ** Updated for v2.1.0 of the Apollo3 core / Artemis board package **
  ** (At the time of writing, v2.1.1 of the core conatins a feature which makes communication with the u-blox GNSS problematic. Be sure to use v2.1.0) **
@@ -19,7 +19,7 @@
  to prevent the Artemis from hanging. We do this via customised (overwritten) versions of IridiumSBD::beginSerialPort and 
  IridiumSBD::endSerialPort.
  
- You will need to install this version of the Iridium SBD library
+ You will need to install version 3.0.5 of the Iridium SBD I2C library
  before this example will run successfully:
  https://github.com/sparkfun/SparkFun_IridiumSBD_I2C_Arduino_Library
  (Available through the Arduino Library Manager: search for IridiumSBDi2c)
@@ -134,6 +134,10 @@ void setup()
   pinMode(iridiumNA, INPUT); // Configure the Iridium Network Available as an input
   pinMode(superCapPGOOD, INPUT); // Configure the super capacitor charger PGOOD input
 
+  // Make sure the Serial1 RX pin is disabled to prevent the power-on glitch on the modem's RX(OUT) pin
+  // causing problems with v2.1.0 of the Apollo3 core. Requires v3.0.5 of IridiumSBDi2c.
+  modem.endSerialPort();
+
   // Start the console serial port
   Serial.begin(115200);
   while (!Serial) // Wait for the user to open the serial monitor
@@ -221,7 +225,7 @@ void loop()
   digitalWrite(iridiumPwrEN, LOW); // Disable Iridium Power
 
   Serial.print(F("Waiting for 60 seconds"));
-  for (int i = 0; i < 60; i++)
+  for (int i = 0; i < 10; i++)
   {
     Serial.print(F("."));
     delay(1000);
