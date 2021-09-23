@@ -13,6 +13,7 @@ The hardware design is based extensively on the:
 The design also makes use of the:
 - [Skyworks AS179-92LF GaAs RF Switch](https://www.skyworksinc.com/products/switches/as179-92lf)
 - [Maxtena M1600HCT-P-SMA antenna](https://www.maxtena.com/products/f-gps/m1600hct-p-sma/) which is tuned for Iridium, GPS and GLONASS
+  - [Available from SparkFun](https://www.sparkfun.com/products/16838)
 - [TE / MEAS Switzerland MS8607](https://www.te.com/usa-en/product-CAT-BLPS0018.html) combined pressure, humidity and temperature sensor
 
 The full schematic for the tracker can be found [here](../../Hardware/Schematic.pdf)
