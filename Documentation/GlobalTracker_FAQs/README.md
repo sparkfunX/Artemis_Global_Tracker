@@ -67,8 +67,7 @@ The maximum current draw is dictated by the LTC3225 supercapacitor charge curren
 
 ## Which antenna should I use?
 
-We recommend [this one](https://www.sparkfun.com/products/15789). It is optimized for Iridium but provides good signal in the
-GNSS bands too. You can find antennas optimized for both Iridium and GNSS but they tend to be more expensive.
+We recommend [this one](https://www.sparkfun.com/products/16838). It is optimized for Iridium and GNSS (GPS and GLONASS).
 
 ## Can I use an active antenna?
 
