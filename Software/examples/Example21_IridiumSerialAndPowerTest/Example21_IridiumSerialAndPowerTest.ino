@@ -224,7 +224,8 @@ void loop()
   Serial.flush();
   digitalWrite(iridiumPwrEN, LOW); // Disable Iridium Power
 
-  Serial.print(F("Waiting for 60 seconds"));
+  Serial.println();
+  Serial.print(F("Test passed! Waiting for 10 seconds"));
   for (int i = 0; i < 10; i++)
   {
     Serial.print(F("."));
