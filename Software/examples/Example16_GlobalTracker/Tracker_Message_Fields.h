@@ -93,19 +93,19 @@
 #define DEF_SWVER     0x21 // Software version 2.1
 #define DEF_SOURCE    0
 #define DEF_BATTV     500 // 500 * 0.01V = 5V
-#define DEF_PRESS     0
-#define DEF_TEMP      0
-#define DEF_HUMID     0
-#define DEF_YEAR      1970
-#define DEF_MONTH     1
-#define DEF_DAY       1
-#define DEF_HOUR      0
-#define DEF_MIN       0
-#define DEF_SEC       0
-#define DEF_MILLIS    0
-#define DEF_LAT       0
-#define DEF_LON       0
-#define DEF_ALT       0
+#define DEF_PRESS     UINT16_MAX // fill value, 65535 hPa
+#define DEF_TEMP      INT16_MIN  // fill value, -32768 * 0.01°C = -327.68°C
+#define DEF_HUMID     UINT16_MAX // fill value, 65535 * 0.01%RH = 655.35%RH
+#define DEF_YEAR      0 // fill value
+#define DEF_MONTH     0 // fill value
+#define DEF_DAY       0 // fill value
+#define DEF_HOUR      UINT8_MAX // fill value, 255
+#define DEF_MIN       UINT8_MAX // fill value, 255
+#define DEF_SEC       UINT8_MAX // fill value, 255
+#define DEF_MILLIS    UINT16_MAX // fill value, 65535
+#define DEF_LAT       INT32_MIN // fill value, -2147483648 * 1e-7° = -214.7483648°
+#define DEF_LON       INT32_MIN // fill value, -2147483648 * 1e-7° = -214.7483648°
+#define DEF_ALT       INT32_MIN // fill value, -2147483648 mm = -2147483.648 m
 #define DEF_SPEED     0
 #define DEF_HEAD      0
 #define DEF_SATS      0
@@ -128,9 +128,9 @@
 #define DEF_DEST      0
 #define DEF_HIPRESS   1084
 #define DEF_LOPRESS   0
-#define DEF_HITEMP    8500  // 8500 * 10^-2 = 85.0C
-#define DEF_LOTEMP    -4000 // -4000 * 10^-2 = -40.0C
-#define DEF_HIHUMID   10000 // 10000 * 10^-2 = 100.0%RH
+#define DEF_HITEMP    8500  // 8500 * 10^-2°C = 85.0°C
+#define DEF_LOTEMP    -4000 // -4000 * 10^-2°C = -40.0°C
+#define DEF_HIHUMID   10000 // 10000 * 10^-2%RH = 100.0%RH
 #define DEF_LOHUMID   0
 #define DEF_GEOFNUM   0
 #define DEF_GEOF1LAT  0
@@ -390,11 +390,11 @@ typedef struct
   byte MIN;                   // UTC minute
   byte SEC;                   // UTC seconds
   union_uint16t MILLIS;       // UTC milliseconds
-  union_int32t LAT;           // Latitude in Degrees * 10^-7
-  union_int32t LON;           // Latitude in Degrees * 10^-7
+  union_int32t LAT;           // Latitude in degrees * 10^-7
+  union_int32t LON;           // Latitude in degrees * 10^-7
   union_int32t ALT;           // Altitude above MSL in mm
   union_int32t SPEED;         // Ground speed in mm/s
-  union_int32t HEAD;          // The heading in Degrees * 10^-7
+  union_int32t HEAD;          // The heading in degrees * 10^-7
   byte SATS;                  // The number of satellites (space vehicles) used in the solution
   union_uint16t PDOP;         // The Positional Dilution of Precision in cm
   byte FIX;                   // The GNSS fix type as defined in the u-blox PVT message
@@ -418,17 +418,17 @@ typedef struct
   union_uint16t HIHUMID;      // The high humidity limit in %RH * 10^-2
   union_uint16t LOHUMID;      // The low humidity limit in %RH * 10^-2
   byte GEOFNUM;               // Bits 7-4 = the number of geofences (0-4); bits 3-0 = confidence level (0-4)
-  union_int32t GEOF1LAT;      // The latitude of the center of geofence circle 1 in Degrees * 10^-7
-  union_int32t GEOF1LON;      // The longitude of the center of geofence circle 1 in Degrees * 10^-7
+  union_int32t GEOF1LAT;      // The latitude of the center of geofence circle 1 in degrees * 10^-7
+  union_int32t GEOF1LON;      // The longitude of the center of geofence circle 1 in degrees * 10^-7
   union_uint32t GEOF1RAD;     // The radius of geofence circle 1 in cm
-  union_int32t GEOF2LAT;      // The latitude of the center of geofence circle 2 in Degrees * 10^-7
-  union_int32t GEOF2LON;      // The longitude of the center of geofence circle 2 in Degrees * 10^-7
+  union_int32t GEOF2LAT;      // The latitude of the center of geofence circle 2 in degrees * 10^-7
+  union_int32t GEOF2LON;      // The longitude of the center of geofence circle 2 in degrees * 10^-7
   union_uint32t GEOF2RAD;     // The radius of geofence circle 2 in cm
-  union_int32t GEOF3LAT;      // The latitude of the center of geofence circle 3 in Degrees * 10^-7
-  union_int32t GEOF3LON;      // The longitude of the center of geofence circle 3 in Degrees * 10^-7
+  union_int32t GEOF3LAT;      // The latitude of the center of geofence circle 3 in degrees * 10^-7
+  union_int32t GEOF3LON;      // The longitude of the center of geofence circle 3 in degrees * 10^-7
   union_uint32t GEOF3RAD;     // The radius of geofence circle 3 in cm
-  union_int32t GEOF4LAT;      // The latitude of the center of geofence circle 4 in Degrees * 10^-7
-  union_int32t GEOF4LON;      // The longitude of the center of geofence circle 4 in Degrees * 10^-7
+  union_int32t GEOF4LAT;      // The latitude of the center of geofence circle 4 in degrees * 10^-7
+  union_int32t GEOF4LON;      // The longitude of the center of geofence circle 4 in degrees * 10^-7
   union_uint32t GEOF4RAD;     // The radius of geofence circle 4 in cm
   union_uint32t WAKEINT;      // The wake-up interval in seconds
   union_uint16t ALARMINT;     // The alarm transmit interval in minutes
