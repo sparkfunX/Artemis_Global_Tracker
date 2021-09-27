@@ -418,7 +418,7 @@ void loop()
       agtWire.begin(); // Set up the I2C pins
       agtWire.setClock(100000); // Use 100kHz for best performance
       setAGTWirePullups(1); // MS8607 needs pull-ups
-      
+
       bool barometricSensorOK;
       barometricSensorOK = barometricSensor.begin(agtWire); // Begin the PHT sensor
       if (barometricSensorOK == false)
@@ -443,7 +443,7 @@ void loop()
       else // The sensor is OK so let's read and print the PHT values
       {
         myTrackerSettings.PRESS.the_data = (uint16_t)(barometricSensor.getPressure()); // mbar
-        myTrackerSettings.TEMP.the_data = (int16_t)(barometricSensor.getTemperature() * 100.0); // Convert to C * 10^-2
+        myTrackerSettings.TEMP.the_data = (int16_t)(barometricSensor.getTemperature() * 100.0); // Convert to °C * 10^-2
         myTrackerSettings.HUMID.the_data = (uint16_t)(barometricSensor.getHumidity() * 100.0); // Convert to %RH * 10^-2
 
         Serial.print(F("Pressure (mbar): "));
@@ -458,7 +458,8 @@ void loop()
       alarmType = 0; // Clear the alarm type
 
       // Check if a PHT alarm has occurred
-      if (myTrackerSettings.PRESS.the_data > myTrackerSettings.HIPRESS.the_data) // Check if HIPRESS has been exceeded
+      if ( (myTrackerSettings.PRESS.the_data != DEF_PRESS) && // If measurement is valid
+           (myTrackerSettings.PRESS.the_data > myTrackerSettings.HIPRESS.the_data) ) // Check if HIPRESS has been exceeded
       {
         alarmType |= ALARM_HIPRESS;
         if ((myTrackerSettings.FLAGS1 & FLAGS1_HIPRESS) == FLAGS1_HIPRESS) // If the HIPRESS alarm is enabled
@@ -467,7 +468,8 @@ void loop()
           Serial.println(F("*** HIPRESS Alarm! ***"));
         }
       }
-      if (myTrackerSettings.PRESS.the_data < myTrackerSettings.LOPRESS.the_data) // Check if LOPRESS has been exceeded
+      if ( (myTrackerSettings.PRESS.the_data != DEF_PRESS) && // If measurement is valid
+           (myTrackerSettings.PRESS.the_data < myTrackerSettings.LOPRESS.the_data) ) // Check if LOPRESS has been exceeded
       {
         alarmType |= ALARM_LOPRESS;
         if ((myTrackerSettings.FLAGS1 & FLAGS1_LOPRESS) == FLAGS1_LOPRESS) // If the LOPRESS alarm is enabled
@@ -476,7 +478,8 @@ void loop()
           Serial.println(F("*** LOPRESS Alarm! ***"));
         }
       }
-      if (myTrackerSettings.TEMP.the_data > myTrackerSettings.HITEMP.the_data) // Check if HITEMP has been exceeded
+      if ( (myTrackerSettings.TEMP.the_data != DEF_TEMP) && // If measurement is valid
+           (myTrackerSettings.TEMP.the_data > myTrackerSettings.HITEMP.the_data) ) // Check if HITEMP has been exceeded
       {
         alarmType |= ALARM_HITEMP;
         if ((myTrackerSettings.FLAGS1 & FLAGS1_HITEMP) == FLAGS1_HITEMP) // If the HITEMP alarm is enabled
@@ -485,7 +488,8 @@ void loop()
           Serial.println(F("*** HITEMP Alarm! ***"));
         }
       }
-      if (myTrackerSettings.TEMP.the_data < myTrackerSettings.LOTEMP.the_data) // Check if LOTEMP has been exceeded
+      if ( (myTrackerSettings.TEMP.the_data != DEF_TEMP) && // If measurement is valid
+           (myTrackerSettings.TEMP.the_data < myTrackerSettings.LOTEMP.the_data) ) // Check if LOTEMP has been exceeded
       {
         alarmType |= ALARM_LOTEMP;
         if ((myTrackerSettings.FLAGS1 & FLAGS1_LOTEMP) == FLAGS1_LOTEMP) // If the LOTEMP alarm is enabled
@@ -494,7 +498,8 @@ void loop()
           Serial.println(F("*** LOTEMP Alarm! ***"));
         }
       }
-      if (myTrackerSettings.HUMID.the_data > myTrackerSettings.HIHUMID.the_data) // Check if HIHUMID has been exceeded
+      if ( (myTrackerSettings.HUMID.the_data != DEF_HUMID) && // If measurement is valid
+           (myTrackerSettings.HUMID.the_data > myTrackerSettings.HIHUMID.the_data) ) // Check if HIHUMID has been exceeded
       {
         alarmType |= ALARM_HIHUMID;
         if ((myTrackerSettings.FLAGS1 & FLAGS1_HIHUMID) == FLAGS1_HIHUMID) // If the HIHUMID alarm is enabled
@@ -503,7 +508,8 @@ void loop()
           Serial.println(F("*** HIHUMID Alarm! ***"));
         }
       }
-      if (myTrackerSettings.HUMID.the_data < myTrackerSettings.LOHUMID.the_data) // Check if LOHUMID has been exceeded
+      if ( (myTrackerSettings.HUMID.the_data != DEF_HUMID) && // If measurement is valid
+           (myTrackerSettings.HUMID.the_data < myTrackerSettings.LOHUMID.the_data) ) // Check if LOHUMID has been exceeded
       {
         alarmType |= ALARM_LOHUMID;
         if ((myTrackerSettings.FLAGS1 & FLAGS1_LOHUMID) == FLAGS1_LOHUMID) // If the LOHUMID alarm is enabled
