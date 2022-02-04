@@ -11,6 +11,10 @@ An open source global satellite tracker utilising the [SparkFun Artemis module](
 
 [*SparkX Artemis Global Tracker (SPX-16469)*](https://www.sparkfun.com/products/16469)
 
+## Retired Product
+
+The SparkX Artemis Global Tracker (SPX-16469) has been replaced by the [SparkFun Artemis Global Tracker (WRL-18712)](https://www.sparkfun.com/products/18712).
+
 ## Repository Contents
 
 - **/Documentation** - Documentation for the hardware and the full GlobalTracker example
